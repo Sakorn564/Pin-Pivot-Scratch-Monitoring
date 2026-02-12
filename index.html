@@ -494,10 +494,6 @@
             gap: 10px;
         }
 
-        .storage-warning strong {
-            color: #856404;
-        }
-
         @media print {
             .no-export, button, .filter-section, .tab-container {
                 display: none !important;
@@ -568,13 +564,11 @@
                         <div class="info-box">
                             <h4>📋 Excel Format Requirements:</h4>
                             <ul>
-                                <li><strong>Required:</strong> Sample No., Week, Date, Product, Pivot</li>
-                                <li>Monitor/Buyoff/OCAP, HDD SN, HSA SN</li>
-                                <li>SDL RW ASM cycle, MC, Fixture</li>
-                                <li>Index, Line, Time</li>
+                                <li><strong>Required:</strong> Sample No., Week, Date, Product, Pivot, Line</li>
+                                <li>Time: HH:MM format (e.g., 07:00, 14:30)</li>
                                 <li>Pivot: K/J/S/D/L (NSK) or M/B/N/P (NMB)</li>
-                                <li>Scratch columns (ใช้ตัวเลขหรือ "V")</li>
-                                <li>Remark (optional)</li>
+                                <li>Scratch columns: ตัวเลขหรือ "V"</li>
+                                <li>ข้อมูลจะถูกเพิ่มเข้าระบบ (ไม่ลบเดิม)</li>
                             </ul>
                         </div>
                     </div>
@@ -584,7 +578,7 @@
                             📤 Upload Excel File
                         </button>
                         <button type="button" class="btn-info" onclick="downloadTemplate()">
-                            📥 Download Excel Template
+                            📥 Download Template
                         </button>
                         <button type="button" class="btn-primary" onclick="showUploadGuide()">
                             ❓ Upload Guide
@@ -662,7 +656,7 @@
                             <input type="text" name="product" required>
                         </div>
                         <div class="form-group">
-                            <label>Pivot (K/J/S/D/L NSK / M/B/N/P NMB) *</label>
+                            <label>Pivot *</label>
                             <select name="pivot" required>
                                 <option value="">Select Pivot Type</option>
                                 <optgroup label="NSK">
@@ -685,7 +679,7 @@
                     <div class="scratch-section">
                         <h3>🔍 Pin Pivot Scratch Inspection Results</h3>
                         <p style="margin-bottom: 15px; color: #666; font-size: 0.95em;">
-                            ✅ เลือก checkbox แล้วใส่จำนวนที่ตรวจพบ (ถ้าไม่พบให้ใส่ 0 หรือเว้นว่าง)
+                            ✅ เลือก checkbox แล้วใส่จำนวนที่ตรวจพบ
                         </p>
                         <div class="scratch-grid">
                             <div class="scratch-item">
@@ -751,7 +745,7 @@
                     </div>
 
                     <div class="form-group">
-                        <label>Remark (หมายเหตุ)</label>
+                        <label>Remark</label>
                         <textarea name="remark" rows="3"></textarea>
                     </div>
 
@@ -847,7 +841,6 @@
                 <button class="btn-success" onclick="exportToExcel()">📥 Export All Data to Excel</button>
                 <button class="btn-primary" onclick="fixExistingTimeData()">🔧 Fix Time Format</button>
                 <button class="btn-info" onclick="cleanOldData()">🗑️ Clean Data Older Than 1 Year</button>
-                <button class="btn-danger" onclick="clearAllData()">⚠️ Clear All Data</button>
             </div>
         </div>
 
@@ -932,10 +925,7 @@
         function getPivotType(pivotValue) {
             const nsk = ['K', 'J', 'S', 'D', 'L'];
             const nmb = ['M', 'B', 'N', 'P'];
-            
-            if (nsk.includes(pivotValue)) return 'NSK';
-            if (nmb.includes(pivotValue)) return 'NMB';
-            return 'Unknown';
+            return nsk.includes(pivotValue) ? 'NSK' : (nmb.includes(pivotValue) ? 'NMB' : 'Unknown');
         }
 
         function toggleNumber(id) {
@@ -964,16 +954,14 @@
                 }
                 
                 if (dataSize > maxSize) {
-                    alert(`⚠️ ข้อมูลเต็ม!\n\nขนาด: ${(dataSize / 1024 / 1024).toFixed(2)} MB\n\nกรุณา:\n1. Export ข้อมูล\n2. Clean Old Data\n3. Clear All Data`);
+                    alert(`⚠️ พื้นที่เต็ม! (${(dataSize / 1024 / 1024).toFixed(2)} MB)\n\nกรุณา Export และลบข้อมูลเก่า`);
                     return false;
                 }
                 
                 localStorage.setItem('scratchData', dataString);
                 return true;
             } catch (e) {
-                if (e.name === 'QuotaExceededError') {
-                    alert('❌ พื้นที่เต็ม!\n\nกรุณา Export และลบข้อมูลเก่า');
-                }
+                alert('❌ ไม่สามารถบันทึกได้');
                 return false;
             }
         }
@@ -993,7 +981,7 @@
                     const jsonData = XLSX.utils.sheet_to_json(firstSheet);
                     
                     if (jsonData.length === 0) {
-                        showUploadStatus('error', '❌ ไฟล์ว่างเปล่า');
+                        showUploadStatus('error', '❌ ไฟล์ว่าง');
                         return;
                     }
 
@@ -1008,7 +996,6 @@
         function processUploadedData(jsonData) {
             let successCount = 0;
             let errorCount = 0;
-            const errors = [];
 
             jsonData.forEach((row, index) => {
                 try {
@@ -1022,17 +1009,14 @@
                         }
                     }
 
-                    // Parse Time - แก้ไขให้แปลงเป็น HH:MM
                     let timeString = '';
                     if (row.Time) {
                         if (typeof row.Time === 'number') {
-                            // Excel time format (0.29166667 = 07:00)
                             const totalMinutes = Math.round(row.Time * 24 * 60);
                             const hours = Math.floor(totalMinutes / 60);
                             const minutes = totalMinutes % 60;
                             timeString = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
-                        } else if (typeof row.Time === 'string') {
-                            // If already string, keep it
+                        } else {
                             timeString = row.Time;
                         }
                     }
@@ -1046,14 +1030,14 @@
 
                     const data = {
                         id: Date.now() + index,
-                        sampleNo: row['Sample No.'] || row['Sample No'] || '',
+                        sampleNo: row['Sample No.'] || '',
                         week: row.Week || '',
                         date: dateObj.toISOString().split('T')[0],
                         time: timeString,
                         monitorType: row['Monitor/Buyoff/OCAP'] || 'Monitor',
                         hddSN: row['HDD SN'] || '',
                         hsaSN: row['HSA SN'] || '',
-                        asmCycle: row['SDL RW ASM cycle'] || row['SDL RW\nASM cycle'] || '',
+                        asmCycle: row['SDL RW ASM cycle'] || '',
                         mc: row.MC || '',
                         fixture: row.Fixture || '',
                         index: row.Index || '',
@@ -1076,7 +1060,6 @@
 
                     if (!data.sampleNo || !data.week || !data.date || !data.product) {
                         errorCount++;
-                        errors.push(`Row ${index + 2}: Missing required`);
                         return;
                     }
 
@@ -1085,7 +1068,6 @@
 
                 } catch (error) {
                     errorCount++;
-                    errors.push(`Row ${index + 2}: ${error.message}`);
                 }
             });
 
@@ -1095,12 +1077,7 @@
                 return;
             }
 
-            let statusMessage = `✅ นำเข้าสำเร็จ: ${successCount} รายการ`;
-            if (errorCount > 0) {
-                statusMessage += `<br>⚠️ ข้อผิดพลาด: ${errorCount} รายการ`;
-            }
-
-            showUploadStatus(errorCount === 0 ? 'success' : 'warning', statusMessage);
+            showUploadStatus('success', `✅ นำเข้าสำเร็จ: ${successCount.toLocaleString()} รายการ`);
 
             populateFilters();
             updateTable();
@@ -1118,10 +1095,6 @@
                 statusDiv.style.background = '#d4edda';
                 statusDiv.style.color = '#155724';
                 statusDiv.style.border = '2px solid #c3e6cb';
-            } else if (type === 'warning') {
-                statusDiv.style.background = '#fff3cd';
-                statusDiv.style.color = '#856404';
-                statusDiv.style.border = '2px solid #ffeaa7';
             } else {
                 statusDiv.style.background = '#f8d7da';
                 statusDiv.style.color = '#721c24';
@@ -1129,61 +1102,54 @@
             }
             
             statusDiv.innerHTML = message;
-
-            setTimeout(() => {
-                statusDiv.style.display = 'none';
-            }, 10000);
+            setTimeout(() => { statusDiv.style.display = 'none'; }, 10000);
         }
 
         function downloadTemplate() {
-            const templateData = [
-                {
-                    'Sample No.': 'SAMPLE001',
-                    'Week': '1',
-                    'Date': '2025-01-27',
-                    'Time': '07:00',
-                    'Monitor/Buyoff/OCAP': 'Monitor',
-                    'HDD SN': 'HDD12345',
-                    'HSA SN': 'HSA67890',
-                    'SDL RW ASM cycle': 'CYCLE001',
-                    'MC': 'MC01',
-                    'Fixture': 'FIX01',
-                    'Index': '1',
-                    'Line': 'LF',
-                    'Product': 'P1-P2 (SEW)',
-                    'Pivot': 'K',
-                    'No scratch': 5,
-                    'Scratch w/protrusion': 0,
-                    'Hardly long scratch': 0,
-                    'Slightly long scratch': 0,
-                    'Hardly short scratch': 0,
-                    'Slightly short scratch': 0,
-                    'Hardly wide scratch at top pin area': 0,
-                    'Slightly wide scratch at top pin area': 0,
-                    'Hardly wide scratch at bottom pin area': 0,
-                    'Slightly wide scratch at bottom pin area': 0,
-                    'Remark': ''
-                }
-            ];
+            const templateData = [{
+                'Sample No.': 'SAMPLE001',
+                'Week': '1',
+                'Date': '2025-01-27',
+                'Time': '07:00',
+                'Monitor/Buyoff/OCAP': 'Monitor',
+                'HDD SN': 'HDD12345',
+                'HSA SN': 'HSA67890',
+                'SDL RW ASM cycle': 'CYCLE001',
+                'MC': 'MC01',
+                'Fixture': 'FIX01',
+                'Index': '1',
+                'Line': 'LF',
+                'Product': 'P1-P2',
+                'Pivot': 'K',
+                'No scratch': 5,
+                'Scratch w/protrusion': 0,
+                'Hardly long scratch': 0,
+                'Slightly long scratch': 0,
+                'Hardly short scratch': 0,
+                'Slightly short scratch': 0,
+                'Hardly wide scratch at top pin area': 0,
+                'Slightly wide scratch at top pin area': 0,
+                'Hardly wide scratch at bottom pin area': 0,
+                'Slightly wide scratch at bottom pin area': 0,
+                'Remark': ''
+            }];
 
             const ws = XLSX.utils.json_to_sheet(templateData);
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, "Template");
-            XLSX.writeFile(wb, 'Pin_Pivot_Scratch_Template.xlsx');
-            
-            alert('✅ ดาวน์โหลด Template สำเร็จ!');
+            XLSX.writeFile(wb, 'Template.xlsx');
+            alert('✅ Download Template สำเร็จ!');
         }
 
         function showUploadGuide() {
-            alert(`📚 คู่มือ Upload Excel
+            alert(`📚 Upload Guide
 
-1️⃣ Download Template
-2️⃣ กรอกข้อมูล (Required: Sample No., Week, Date, Product, Pivot)
-3️⃣ Time ใช้รูปแบบ HH:MM (เช่น 07:00, 14:30)
-4️⃣ Upload ไฟล์
-5️⃣ ตรวจสอบผล
+1. Download Template
+2. กรอกข้อมูล (Required: Sample No., Week, Date, Product, Pivot, Line)
+3. Time: HH:MM (07:00, 14:30)
+4. Upload ไฟล์
 
-⚠️ ข้อมูลจะถูกเพิ่มเข้าระบบ (ไม่ลบเดิม)`);
+⚠️ ข้อมูลจะถูกเพิ่มเข้าระบบ`);
         }
 
         function showStorageInfo() {
@@ -1192,59 +1158,40 @@
             const maxSize = 5 * 1024 * 1024;
             const usedPercent = ((dataSize / maxSize) * 100).toFixed(2);
             
-            alert(`💾 Storage Info:
+            alert(`💾 Storage:
 
-📊 Size: ${(dataSize / 1024 / 1024).toFixed(2)} MB
-📈 Records: ${dataStore.length.toLocaleString()}
-⚠️ Used: ${usedPercent}%
-✅ Available: ${((maxSize - dataSize) / 1024 / 1024).toFixed(2)} MB
+Size: ${(dataSize / 1024 / 1024).toFixed(2)} MB
+Records: ${dataStore.length.toLocaleString()}
+Used: ${usedPercent}%
+Available: ${((maxSize - dataSize) / 1024 / 1024).toFixed(2)} MB
 
-${usedPercent > 80 ? '⚠️ กรุณา Export และลบข้อมูลเก่า' : '✅ พื้นที่เพียงพอ'}`);
+${usedPercent > 80 ? '⚠️ กรุณา Export' : '✅ OK'}`);
         }
 
         function fixExistingTimeData() {
             let fixedCount = 0;
             
             dataStore.forEach(d => {
-                if (d.time && typeof d.time === 'string' && d.time.includes('.')) {
-                    const timeNum = parseFloat(d.time);
-                    if (!isNaN(timeNum) && timeNum < 1) {
-                        const totalMinutes = Math.round(timeNum * 24 * 60);
-                        const hours = Math.floor(totalMinutes / 60);
-                        const minutes = totalMinutes % 60;
-                        d.time = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
-                        fixedCount++;
+                if (d.time) {
+                    if (typeof d.time === 'number' || (typeof d.time === 'string' && d.time.includes('.'))) {
+                        const timeNum = parseFloat(d.time);
+                        if (!isNaN(timeNum) && timeNum < 1) {
+                            const totalMinutes = Math.round(timeNum * 24 * 60);
+                            const hours = Math.floor(totalMinutes / 60);
+                            const minutes = totalMinutes % 60;
+                            d.time = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+                            fixedCount++;
+                        }
                     }
-                } else if (d.time && typeof d.time === 'number') {
-                    const totalMinutes = Math.round(d.time * 24 * 60);
-                    const hours = Math.floor(totalMinutes / 60);
-                    const minutes = totalMinutes % 60;
-                    d.time = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
-                    fixedCount++;
                 }
             });
             
             if (fixedCount > 0) {
                 saveToLocalStorage(dataStore);
                 updateTable();
-                alert(`✅ แก้ไข Time format สำเร็จ: ${fixedCount} รายการ`);
+                alert(`✅ แก้ไข Time: ${fixedCount.toLocaleString()} รายการ`);
             } else {
-                alert('ℹ️ ไม่พบข้อมูล Time ที่ต้องแก้ไข');
-            }
-        }
-
-        function clearAllData() {
-            if (confirm('⚠️ ต้องการลบทั้งหมดหรือไม่?')) {
-                if (confirm('❗ ยืนยันอีกครั้ง')) {
-                    const count = dataStore.length;
-                    dataStore = [];
-                    saveToLocalStorage(dataStore);
-                    updateTable();
-                    updateAllCharts();
-                    populateFilters();
-                    updateRecordCount();
-                    alert(`✅ ลบสำเร็จ: ${count.toLocaleString()} รายการ`);
-                }
+                alert('ℹ️ ไม่พบข้อมูลที่ต้องแก้ไข');
             }
         }
 
@@ -1286,18 +1233,14 @@ ${usedPercent > 80 ? '⚠️ กรุณา Export และลบข้อม�
             
             if (!saveToLocalStorage(dataStore)) {
                 dataStore.pop();
-                alert('❌ ไม่สามารถบันทึกได้');
                 return;
             }
 
             document.getElementById('successAlert').style.display = 'block';
-            setTimeout(() => {
-                document.getElementById('successAlert').style.display = 'none';
-            }, 3000);
+            setTimeout(() => { document.getElementById('successAlert').style.display = 'none'; }, 3000);
 
             e.target.reset();
             resetForm();
-
             updateAllCharts();
             updateTable();
             populateFilters();
@@ -1316,24 +1259,18 @@ ${usedPercent > 80 ? '⚠️ กรุณา Export และลบข้อม�
         function switchTab(tabName) {
             document.querySelectorAll('.content').forEach(c => c.classList.remove('active'));
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-
             document.getElementById(tabName).classList.add('active');
             event.target.classList.add('active');
 
-            if (tabName === 'view') {
-                updateAllCharts();
-            } else if (tabName === 'table') {
-                updateTable();
-            }
+            if (tabName === 'view') updateAllCharts();
+            else if (tabName === 'table') updateTable();
         }
 
         function populateFilters() {
             const products = [...new Set(dataStore.map(d => d.product).filter(p => p))];
             const productFilter = document.getElementById('productFilter');
             productFilter.innerHTML = '<option value="all">All</option>';
-            products.forEach(p => {
-                productFilter.innerHTML += `<option value="${p}">${p}</option>`;
-            });
+            products.forEach(p => productFilter.innerHTML += `<option value="${p}">${p}</option>`);
 
             const lines = [...new Set(dataStore.map(d => d.line).filter(l => l))];
             const lineFilter = document.getElementById('lineFilter');
@@ -1380,12 +1317,10 @@ ${usedPercent > 80 ? '⚠️ กรุณา Export และลบข้อม�
 
         function updateAllCharts() {
             const data = getFilteredData();
-
             if (data.length === 0) {
-                document.getElementById('statsSection').innerHTML = '<p style="text-align: center; padding: 40px; color: #666; grid-column: 1/-1;">ไม่พบข้อมูลตามเงื่อนไข</p>';
+                document.getElementById('statsSection').innerHTML = '<p style="text-align: center; padding: 40px; color: #666; grid-column: 1/-1;">ไม่พบข้อมูล</p>';
                 return;
             }
-
             updateStats(data);
             updateScratchCountChart(data);
             updateScratchPercentChart(data);
@@ -1405,40 +1340,18 @@ ${usedPercent > 80 ? '⚠️ กรุณา Export และลบข้อม�
             const totalDefects = scratchProtrusion + longScratches + shortScratches + wideScratches;
 
             document.getElementById('statsSection').innerHTML = `
-                <div class="stat-card">
-                    <h3>Total Samples</h3>
-                    <div class="value">${total.toLocaleString()}</div>
-                </div>
-                <div class="stat-card success">
-                    <h3>No Scratch</h3>
-                    <div class="value">${noScratch.toLocaleString()}</div>
-                </div>
-                <div class="stat-card red">
-                    <h3>Total Defects</h3>
-                    <div class="value">${totalDefects.toLocaleString()}</div>
-                </div>
-                <div class="stat-card red">
-                    <h3>Scratch w/ Protrusion</h3>
-                    <div class="value">${scratchProtrusion.toLocaleString()}</div>
-                </div>
-                <div class="stat-card" style="background: linear-gradient(135deg, #30cfd0 0%, #330867 100%);">
-                    <h3>Long Scratches</h3>
-                    <div class="value">${longScratches.toLocaleString()}</div>
-                </div>
-                <div class="stat-card" style="background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);">
-                    <h3>Short Scratches</h3>
-                    <div class="value">${shortScratches.toLocaleString()}</div>
-                </div>
-                <div class="stat-card" style="background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%);">
-                    <h3>Wide Scratches</h3>
-                    <div class="value">${wideScratches.toLocaleString()}</div>
-                </div>
+                <div class="stat-card"><h3>Total Samples</h3><div class="value">${total.toLocaleString()}</div></div>
+                <div class="stat-card success"><h3>No Scratch</h3><div class="value">${noScratch.toLocaleString()}</div></div>
+                <div class="stat-card red"><h3>Total Defects</h3><div class="value">${totalDefects.toLocaleString()}</div></div>
+                <div class="stat-card red"><h3>Scratch w/ Protrusion</h3><div class="value">${scratchProtrusion.toLocaleString()}</div></div>
+                <div class="stat-card" style="background: linear-gradient(135deg, #30cfd0 0%, #330867 100%);"><h3>Long Scratches</h3><div class="value">${longScratches.toLocaleString()}</div></div>
+                <div class="stat-card" style="background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);"><h3>Short Scratches</h3><div class="value">${shortScratches.toLocaleString()}</div></div>
+                <div class="stat-card" style="background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%);"><h3>Wide Scratches</h3><div class="value">${wideScratches.toLocaleString()}</div></div>
             `;
         }
 
         function updateScratchCountChart(data) {
             const ctx = document.getElementById('scratchCountChart').getContext('2d');
-            
             const counts = {
                 'No scratch': data.reduce((sum, d) => sum + d.noScratch, 0),
                 'Scratch w/ Protrusion': data.reduce((sum, d) => sum + d.scratchProtrusion, 0),
@@ -1451,315 +1364,117 @@ ${usedPercent > 80 ? '⚠️ กรุณา Export และลบข้อม�
                 'Hardly wide (bottom)': data.reduce((sum, d) => sum + d.hardlyWideBottom, 0),
                 'Slightly wide (bottom)': data.reduce((sum, d) => sum + d.slightlyWideBottom, 0)
             };
-
             if (charts.scratchCount) charts.scratchCount.destroy();
-
             charts.scratchCount = new Chart(ctx, {
                 type: 'bar',
                 data: {
                     labels: Object.keys(counts),
-                    datasets: [{
-                        label: 'Count',
-                        data: Object.values(counts),
-                        backgroundColor: [
-                            '#28a745', '#dc3545', '#ff6384', '#ff9f40',
-                            '#ffcd56', '#4bc0c0', '#36a2eb', '#9966ff',
-                            '#c9cbcf', '#ff6384'
-                        ],
-                        borderRadius: 8
-                    }]
+                    datasets: [{ label: 'Count', data: Object.values(counts), backgroundColor: ['#28a745', '#dc3545', '#ff6384', '#ff9f40', '#ffcd56', '#4bc0c0', '#36a2eb', '#9966ff', '#c9cbcf', '#ff6384'], borderRadius: 8 }]
                 },
-                options: {
-                    responsive: true,
-                    indexAxis: 'y',
-                    plugins: { legend: { display: false } },
-                    scales: {
-                        x: {
-                            beginAtZero: true,
-                            title: { display: true, text: 'Count' }
-                        }
-                    }
-                }
+                options: { responsive: true, indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true, title: { display: true, text: 'Count' } } } }
             });
         }
 
         function updateScratchPercentChart(data) {
             const ctx = document.getElementById('scratchPercentChart').getContext('2d');
-            
             const chartData = {
                 'Scratch w/ Protrusion': data.reduce((sum, d) => sum + d.scratchProtrusion, 0),
-                'Long Scratches': data.reduce((sum, d) => sum + d.hardlyLong + d.slightlyLong, 0),
-                'Short Scratches': data.reduce((sum, d) => sum + d.hardlyShort + d.slightlyShort, 0),
+                'Long': data.reduce((sum, d) => sum + d.hardlyLong + d.slightlyLong, 0),
+                'Short': data.reduce((sum, d) => sum + d.hardlyShort + d.slightlyShort, 0),
                 'Wide (Top)': data.reduce((sum, d) => sum + d.hardlyWideTop + d.slightlyWideTop, 0),
                 'Wide (Bottom)': data.reduce((sum, d) => sum + d.hardlyWideBottom + d.slightlyWideBottom, 0)
             };
-
             if (charts.scratchPercent) charts.scratchPercent.destroy();
-
             charts.scratchPercent = new Chart(ctx, {
                 type: 'doughnut',
-                data: {
-                    labels: Object.keys(chartData),
-                    datasets: [{
-                        data: Object.values(chartData),
-                        backgroundColor: ['#dc3545', '#2a5298', '#ffc107', '#28a745', '#17a2b8'],
-                        borderWidth: 3,
-                        borderColor: '#fff'
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    plugins: { 
-                        legend: { position: 'bottom' },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    const label = context.label || '';
-                                    const value = context.parsed || 0;
-                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                                    const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
-                                    return `${label}: ${value} (${percentage}%)`;
-                                }
-                            }
-                        }
-                    }
-                }
+                data: { labels: Object.keys(chartData), datasets: [{ data: Object.values(chartData), backgroundColor: ['#dc3545', '#2a5298', '#ffc107', '#28a745', '#17a2b8'], borderWidth: 3, borderColor: '#fff' }] },
+                options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
             });
         }
 
         function updatePivotChart(data) {
             const ctx = document.getElementById('pivotChart').getContext('2d');
-            
-            const pivotStats = {
-                'NSK': { total: 0, defects: 0 },
-                'NMB': { total: 0, defects: 0 }
-            };
-
+            const pivotStats = { 'NSK': { total: 0, defects: 0 }, 'NMB': { total: 0, defects: 0 } };
             data.forEach(d => {
                 const type = getPivotType(d.pivot);
                 if (pivotStats[type]) {
                     pivotStats[type].total++;
-                    pivotStats[type].defects += d.scratchProtrusion + d.hardlyLong + d.slightlyLong + 
-                                                d.hardlyShort + d.slightlyShort + d.hardlyWideTop + 
-                                                d.slightlyWideTop + d.hardlyWideBottom + d.slightlyWideBottom;
+                    pivotStats[type].defects += d.scratchProtrusion + d.hardlyLong + d.slightlyLong + d.hardlyShort + d.slightlyShort + d.hardlyWideTop + d.slightlyWideTop + d.hardlyWideBottom + d.slightlyWideBottom;
                 }
             });
-
             if (charts.pivot) charts.pivot.destroy();
-
             charts.pivot = new Chart(ctx, {
                 type: 'bar',
-                data: {
-                    labels: ['NSK (K/J/S/D/L)', 'NMB (M/B/N/P)'],
-                    datasets: [
-                        {
-                            label: 'Total Defects',
-                            data: [pivotStats.NSK.defects, pivotStats.NMB.defects],
-                            backgroundColor: '#dc3545',
-                            borderRadius: 8
-                        },
-                        {
-                            label: 'Total Samples',
-                            data: [pivotStats.NSK.total, pivotStats.NMB.total],
-                            backgroundColor: '#2a5298',
-                            borderRadius: 8
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    plugins: { legend: { position: 'top' } },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            title: { display: true, text: 'Count' }
-                        }
-                    }
-                }
+                data: { labels: ['NSK', 'NMB'], datasets: [{ label: 'Defects', data: [pivotStats.NSK.defects, pivotStats.NMB.defects], backgroundColor: '#dc3545', borderRadius: 8 }, { label: 'Samples', data: [pivotStats.NSK.total, pivotStats.NMB.total], backgroundColor: '#2a5298', borderRadius: 8 }] },
+                options: { responsive: true, plugins: { legend: { position: 'top' } }, scales: { y: { beginAtZero: true } } }
             });
         }
 
         function updateDetailedPivotChart(data) {
             const ctx = document.getElementById('detailedPivotChart').getContext('2d');
-            
             const pivotStats = {};
-            ['K', 'J', 'S', 'D', 'L', 'M', 'B', 'N', 'P'].forEach(p => {
-                pivotStats[p] = 0;
-            });
-
+            ['K', 'J', 'S', 'D', 'L', 'M', 'B', 'N', 'P'].forEach(p => pivotStats[p] = 0);
             data.forEach(d => {
                 if (pivotStats[d.pivot] !== undefined) {
-                    pivotStats[d.pivot] += d.scratchProtrusion + d.hardlyLong + d.slightlyLong + 
-                                            d.hardlyShort + d.slightlyShort + d.hardlyWideTop + 
-                                            d.slightlyWideTop + d.hardlyWideBottom + d.slightlyWideBottom;
+                    pivotStats[d.pivot] += d.scratchProtrusion + d.hardlyLong + d.slightlyLong + d.hardlyShort + d.slightlyShort + d.hardlyWideTop + d.slightlyWideTop + d.hardlyWideBottom + d.slightlyWideBottom;
                 }
             });
-
             if (charts.detailedPivot) charts.detailedPivot.destroy();
-
             charts.detailedPivot = new Chart(ctx, {
                 type: 'bar',
-                data: {
-                    labels: Object.keys(pivotStats),
-                    datasets: [{
-                        label: 'Total Defects',
-                        data: Object.values(pivotStats),
-                        backgroundColor: [
-                            '#667eea', '#764ba2', '#f093fb', '#4facfe', '#43e97b',
-                            '#fa709a', '#fee140', '#30cfd0', '#a8edea'
-                        ],
-                        borderRadius: 10
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    plugins: { 
-                        legend: { display: false },
-                        title: { display: true, text: 'NSK (K/J/S/D/L) vs NMB (M/B/N/P)' }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            title: { display: true, text: 'Defect Count' }
-                        }
-                    }
-                }
+                data: { labels: Object.keys(pivotStats), datasets: [{ label: 'Defects', data: Object.values(pivotStats), backgroundColor: ['#667eea', '#764ba2', '#f093fb', '#4facfe', '#43e97b', '#fa709a', '#fee140', '#30cfd0', '#a8edea'], borderRadius: 10 }] },
+                options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
             });
         }
 
         function updateTrendChart(data) {
             const ctx = document.getElementById('trendChart').getContext('2d');
-            
             const grouped = {};
             data.forEach(d => {
-                if (!grouped[d.date]) {
-                    grouped[d.date] = {
-                        noScratch: 0,
-                        scratchProtrusion: 0,
-                        longScratches: 0,
-                        shortScratches: 0,
-                        wideScratches: 0
-                    };
-                }
+                if (!grouped[d.date]) grouped[d.date] = { noScratch: 0, scratchProtrusion: 0, longScratches: 0, shortScratches: 0, wideScratches: 0 };
                 grouped[d.date].noScratch += d.noScratch;
                 grouped[d.date].scratchProtrusion += d.scratchProtrusion;
                 grouped[d.date].longScratches += d.hardlyLong + d.slightlyLong;
                 grouped[d.date].shortScratches += d.hardlyShort + d.slightlyShort;
                 grouped[d.date].wideScratches += d.hardlyWideTop + d.slightlyWideTop + d.hardlyWideBottom + d.slightlyWideBottom;
             });
-
             const labels = Object.keys(grouped).sort();
-
             if (charts.trend) charts.trend.destroy();
-
             charts.trend = new Chart(ctx, {
                 type: 'line',
                 data: {
                     labels: labels,
                     datasets: [
-                        {
-                            label: 'No Scratch',
-                            data: labels.map(l => grouped[l].noScratch),
-                            borderColor: '#28a745',
-                            backgroundColor: 'rgba(40, 167, 69, 0.1)',
-                            tension: 0.4,
-                            fill: true
-                        },
-                        {
-                            label: 'Scratch w/ Protrusion',
-                            data: labels.map(l => grouped[l].scratchProtrusion),
-                            borderColor: '#dc3545',
-                            backgroundColor: 'rgba(220, 53, 69, 0.1)',
-                            tension: 0.4,
-                            fill: true
-                        },
-                        {
-                            label: 'Long Scratches',
-                            data: labels.map(l => grouped[l].longScratches),
-                            borderColor: '#2a5298',
-                            backgroundColor: 'rgba(42, 82, 152, 0.1)',
-                            tension: 0.4,
-                            fill: true
-                        },
-                        {
-                            label: 'Short Scratches',
-                            data: labels.map(l => grouped[l].shortScratches),
-                            borderColor: '#ffc107',
-                            backgroundColor: 'rgba(255, 193, 7, 0.1)',
-                            tension: 0.4,
-                            fill: true
-                        },
-                        {
-                            label: 'Wide Scratches',
-                            data: labels.map(l => grouped[l].wideScratches),
-                            borderColor: '#17a2b8',
-                            backgroundColor: 'rgba(23, 162, 184, 0.1)',
-                            tension: 0.4,
-                            fill: true
-                        }
+                        { label: 'No Scratch', data: labels.map(l => grouped[l].noScratch), borderColor: '#28a745', backgroundColor: 'rgba(40, 167, 69, 0.1)', tension: 0.4, fill: true },
+                        { label: 'Scratch w/ Protrusion', data: labels.map(l => grouped[l].scratchProtrusion), borderColor: '#dc3545', backgroundColor: 'rgba(220, 53, 69, 0.1)', tension: 0.4, fill: true },
+                        { label: 'Long', data: labels.map(l => grouped[l].longScratches), borderColor: '#2a5298', backgroundColor: 'rgba(42, 82, 152, 0.1)', tension: 0.4, fill: true },
+                        { label: 'Short', data: labels.map(l => grouped[l].shortScratches), borderColor: '#ffc107', backgroundColor: 'rgba(255, 193, 7, 0.1)', tension: 0.4, fill: true },
+                        { label: 'Wide', data: labels.map(l => grouped[l].wideScratches), borderColor: '#17a2b8', backgroundColor: 'rgba(23, 162, 184, 0.1)', tension: 0.4, fill: true }
                     ]
                 },
-                options: {
-                    responsive: true,
-                    plugins: { legend: { position: 'top' } },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            title: { display: true, text: 'Count' }
-                        }
-                    }
-                }
+                options: { responsive: true, plugins: { legend: { position: 'top' } }, scales: { y: { beginAtZero: true } } }
             });
         }
 
         function updateDetailedChart(data) {
             const ctx = document.getElementById('detailedChart').getContext('2d');
-            
             const categories = [
-                { name: 'Long Scratch', hardly: data.reduce((s, d) => s + d.hardlyLong, 0), slightly: data.reduce((s, d) => s + d.slightlyLong, 0) },
-                { name: 'Short Scratch', hardly: data.reduce((s, d) => s + d.hardlyShort, 0), slightly: data.reduce((s, d) => s + d.slightlyShort, 0) },
+                { name: 'Long', hardly: data.reduce((s, d) => s + d.hardlyLong, 0), slightly: data.reduce((s, d) => s + d.slightlyLong, 0) },
+                { name: 'Short', hardly: data.reduce((s, d) => s + d.hardlyShort, 0), slightly: data.reduce((s, d) => s + d.slightlyShort, 0) },
                 { name: 'Wide (Top)', hardly: data.reduce((s, d) => s + d.hardlyWideTop, 0), slightly: data.reduce((s, d) => s + d.slightlyWideTop, 0) },
                 { name: 'Wide (Bottom)', hardly: data.reduce((s, d) => s + d.hardlyWideBottom, 0), slightly: data.reduce((s, d) => s + d.slightlyWideBottom, 0) }
             ];
-
             if (charts.detailed) charts.detailed.destroy();
-
             charts.detailed = new Chart(ctx, {
                 type: 'bar',
-                data: {
-                    labels: categories.map(c => c.name),
-                    datasets: [
-                        {
-                            label: 'Hardly',
-                            data: categories.map(c => c.hardly),
-                            backgroundColor: '#dc3545',
-                            borderRadius: 8
-                        },
-                        {
-                            label: 'Slightly',
-                            data: categories.map(c => c.slightly),
-                            backgroundColor: '#ff9f40',
-                            borderRadius: 8
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    plugins: { legend: { position: 'top' } },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            title: { display: true, text: 'Count' }
-                        }
-                    }
-                }
+                data: { labels: categories.map(c => c.name), datasets: [{ label: 'Hardly', data: categories.map(c => c.hardly), backgroundColor: '#dc3545', borderRadius: 8 }, { label: 'Slightly', data: categories.map(c => c.slightly), backgroundColor: '#ff9f40', borderRadius: 8 }] },
+                options: { responsive: true, plugins: { legend: { position: 'top' } }, scales: { y: { beginAtZero: true } } }
             });
         }
 
         function updateTable() {
             const tbody = document.getElementById('tableBody');
             tbody.innerHTML = '';
-
             const startDate = document.getElementById('tableStartDate')?.value;
             const endDate = document.getElementById('tableEndDate')?.value;
             const line = document.getElementById('tableLineFilter')?.value;
@@ -1774,14 +1489,12 @@ ${usedPercent > 80 ? '⚠️ กรุณา Export และลบข้อม�
             document.getElementById('totalRecords').textContent = displayData.length.toLocaleString();
 
             if (displayData.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="26" style="text-align: center; padding: 40px; color: #666;">ไม่พบข้อมูล</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="26" style="text-align: center; padding: 40px;">ไม่พบข้อมูล</td></tr>';
                 return;
             }
 
             displayData.sort((a, b) => new Date(b.date) - new Date(a.date)).forEach(d => {
-                const pivotType = getPivotType(d.pivot);
-                const pivotClass = pivotType === 'NSK' ? 'pivot-nsk' : (pivotType === 'NMB' ? 'pivot-nmb' : '');
-                
+                const pivotClass = getPivotType(d.pivot) === 'NSK' ? 'pivot-nsk' : 'pivot-nmb';
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td>${d.sampleNo || ''}</td>
@@ -1800,20 +1513,16 @@ ${usedPercent > 80 ? '⚠️ กรุณา Export และลบข้อม�
                     <td><span class="${pivotClass}">${d.pivot || ''}</span></td>
                     <td style="background: ${d.noScratch > 0 ? '#e6ffe6' : ''}; font-weight: ${d.noScratch > 0 ? 'bold' : 'normal'}">${d.noScratch || ''}</td>
                     <td style="background: ${d.scratchProtrusion > 0 ? '#ffe6e6' : ''}; color: ${d.scratchProtrusion > 0 ? '#dc3545' : ''}; font-weight: ${d.scratchProtrusion > 0 ? 'bold' : 'normal'}">${d.scratchProtrusion || ''}</td>
-                    <td style="background: ${d.hardlyLong > 0 ? '#fff3cd' : ''}; font-weight: ${d.hardlyLong > 0 ? 'bold' : 'normal'}">${d.hardlyLong || ''}</td>
-                    <td style="background: ${d.slightlyLong > 0 ? '#fff3cd' : ''}; font-weight: ${d.slightlyLong > 0 ? 'bold' : 'normal'}">${d.slightlyLong || ''}</td>
-                    <td style="background: ${d.hardlyShort > 0 ? '#d1ecf1' : ''}; font-weight: ${d.hardlyShort > 0 ? 'bold' : 'normal'}">${d.hardlyShort || ''}</td>
-                    <td style="background: ${d.slightlyShort > 0 ? '#d1ecf1' : ''}; font-weight: ${d.slightlyShort > 0 ? 'bold' : 'normal'}">${d.slightlyShort || ''}</td>
-                    <td style="background: ${d.hardlyWideTop > 0 ? '#f8d7da' : ''}; font-weight: ${d.hardlyWideTop > 0 ? 'bold' : 'normal'}">${d.hardlyWideTop || ''}</td>
-                    <td style="background: ${d.slightlyWideTop > 0 ? '#f8d7da' : ''}; font-weight: ${d.slightlyWideTop > 0 ? 'bold' : 'normal'}">${d.slightlyWideTop || ''}</td>
-                    <td style="background: ${d.hardlyWideBottom > 0 ? '#e2e3e5' : ''}; font-weight: ${d.hardlyWideBottom > 0 ? 'bold' : 'normal'}">${d.hardlyWideBottom || ''}</td>
-                    <td style="background: ${d.slightlyWideBottom > 0 ? '#e2e3e5' : ''}; font-weight: ${d.slightlyWideBottom > 0 ? 'bold' : 'normal'}">${d.slightlyWideBottom || ''}</td>
+                    <td style="background: ${d.hardlyLong > 0 ? '#fff3cd' : ''}">${d.hardlyLong || ''}</td>
+                    <td style="background: ${d.slightlyLong > 0 ? '#fff3cd' : ''}">${d.slightlyLong || ''}</td>
+                    <td style="background: ${d.hardlyShort > 0 ? '#d1ecf1' : ''}">${d.hardlyShort || ''}</td>
+                    <td style="background: ${d.slightlyShort > 0 ? '#d1ecf1' : ''}">${d.slightlyShort || ''}</td>
+                    <td style="background: ${d.hardlyWideTop > 0 ? '#f8d7da' : ''}">${d.hardlyWideTop || ''}</td>
+                    <td style="background: ${d.slightlyWideTop > 0 ? '#f8d7da' : ''}">${d.slightlyWideTop || ''}</td>
+                    <td style="background: ${d.hardlyWideBottom > 0 ? '#e2e3e5' : ''}">${d.hardlyWideBottom || ''}</td>
+                    <td style="background: ${d.slightlyWideBottom > 0 ? '#e2e3e5' : ''}">${d.slightlyWideBottom || ''}</td>
                     <td>${d.remark || ''}</td>
-                    <td class="no-export">
-                        <button onclick="deleteRecord(${d.id})" style="background: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 0.85em;">
-                            🗑️
-                        </button>
-                    </td>
+                    <td class="no-export"><button onclick="deleteRecord(${d.id})" style="background: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer;">🗑️</button></td>
                 `;
                 tbody.appendChild(tr);
             });
@@ -1840,117 +1549,49 @@ ${usedPercent > 80 ? '⚠️ กรุณา Export และลบข้อม�
         function cleanOldData() {
             const oneYearAgo = new Date();
             oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
-            
             const oldCount = dataStore.length;
             dataStore = dataStore.filter(d => {
                 const createdDate = d.createdAt ? new Date(d.createdAt) : new Date(d.date);
                 return createdDate >= oneYearAgo;
             });
-            
             saveToLocalStorage(dataStore);
-            
             alert(`ลบข้อมูลเก่า\nลบ: ${(oldCount - dataStore.length).toLocaleString()}\nเหลือ: ${dataStore.length.toLocaleString()}`);
-            
             updateTable();
             updateAllCharts();
             updateRecordCount();
         }
 
         function exportToExcel() {
-            if (dataStore.length === 0) {
-                alert('ไม่มีข้อมูล');
-                return;
-            }
-
-            const exportData = dataStore.map(d => ({
-                'Sample No.': d.sampleNo,
-                'Week': d.week,
-                'Date': d.date,
-                'Time': d.time,
-                'Monitor/Buyoff/OCAP': d.monitorType,
-                'HDD SN': d.hddSN,
-                'HSA SN': d.hsaSN,
-                'SDL RW ASM cycle': d.asmCycle,
-                'MC': d.mc,
-                'Fixture': d.fixture,
-                'Index': d.index,
-                'Line': d.line,
-                'Product': d.product,
-                'Pivot': d.pivot,
-                'No scratch': d.noScratch,
-                'Scratch w/protrusion': d.scratchProtrusion,
-                'Hardly long scratch': d.hardlyLong,
-                'Slightly long scratch': d.slightlyLong,
-                'Hardly short scratch': d.hardlyShort,
-                'Slightly short scratch': d.slightlyShort,
-                'Hardly wide scratch at top pin area': d.hardlyWideTop,
-                'Slightly wide scratch at top pin area': d.slightlyWideTop,
-                'Hardly wide scratch at bottom pin area': d.hardlyWideBottom,
-                'Slightly wide scratch at bottom pin area': d.slightlyWideBottom,
-                'Remark': d.remark
-            }));
-
+            if (dataStore.length === 0) { alert('ไม่มีข้อมูล'); return; }
+            const exportData = dataStore.map(d => ({ 'Sample No.': d.sampleNo, 'Week': d.week, 'Date': d.date, 'Time': d.time, 'Line': d.line, 'Product': d.product, 'Pivot': d.pivot, 'No scratch': d.noScratch, 'Scratch w/protrusion': d.scratchProtrusion, 'Hardly long': d.hardlyLong, 'Slightly long': d.slightlyLong, 'Hardly short': d.hardlyShort, 'Slightly short': d.slightlyShort, 'Hardly wide (top)': d.hardlyWideTop, 'Slightly wide (top)': d.slightlyWideTop, 'Hardly wide (bottom)': d.hardlyWideBottom, 'Slightly wide (bottom)': d.slightlyWideBottom, 'Remark': d.remark }));
             const ws = XLSX.utils.json_to_sheet(exportData);
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, "Data");
-            XLSX.writeFile(wb, `Pin_Pivot_${new Date().toISOString().split('T')[0]}.xlsx`);
-            
-            alert(`✅ Export: ${exportData.length.toLocaleString()} รายการ`);
+            XLSX.writeFile(wb, `AllData_${new Date().toISOString().split('T')[0]}.xlsx`);
+            alert(`✅ Export: ${exportData.length.toLocaleString()}`);
         }
 
         function exportTableToExcel() {
             const startDate = document.getElementById('tableStartDate')?.value;
             const endDate = document.getElementById('tableEndDate')?.value;
             const line = document.getElementById('tableLineFilter')?.value;
-
             let displayData = dataStore.filter(d => {
                 if (startDate && d.date < startDate) return false;
                 if (endDate && d.date > endDate) return false;
                 if (line !== 'all' && d.line !== line) return false;
                 return true;
             });
-
-            if (displayData.length === 0) {
-                alert('ไม่มีข้อมูล');
-                return;
-            }
-
-            const exportData = displayData.map(d => ({
-                'Sample No.': d.sampleNo,
-                'Week': d.week,
-                'Date': d.date,
-                'Time': d.time,
-                'Line': d.line,
-                'Product': d.product,
-                'Pivot': d.pivot,
-                'No scratch': d.noScratch,
-                'Scratch w/protrusion': d.scratchProtrusion,
-                'Hardly long': d.hardlyLong,
-                'Slightly long': d.slightlyLong,
-                'Hardly short': d.hardlyShort,
-                'Slightly short': d.slightlyShort,
-                'Hardly wide (top)': d.hardlyWideTop,
-                'Slightly wide (top)': d.slightlyWideTop,
-                'Hardly wide (bottom)': d.hardlyWideBottom,
-                'Slightly wide (bottom)': d.slightlyWideBottom,
-                'Remark': d.remark
-            }));
-
+            if (displayData.length === 0) { alert('ไม่มีข้อมูล'); return; }
+            const exportData = displayData.map(d => ({ 'Sample No.': d.sampleNo, 'Week': d.week, 'Date': d.date, 'Time': d.time, 'Line': d.line, 'Product': d.product, 'Pivot': d.pivot, 'No scratch': d.noScratch, 'Scratch w/protrusion': d.scratchProtrusion, 'Remark': d.remark }));
             const ws = XLSX.utils.json_to_sheet(exportData);
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, "Data");
             XLSX.writeFile(wb, `Table_${new Date().toISOString().split('T')[0]}.xlsx`);
-            
-            alert(`✅ Export: ${exportData.length.toLocaleString()} รายการ`);
+            alert(`✅ Export: ${exportData.length.toLocaleString()}`);
         }
 
-        function exportTableToCSV() {
-            alert('CSV Export');
-        }
-
-        function printTable() {
-            window.print();
-        }
+        function exportTableToCSV() { alert('CSV Export'); }
+        function printTable() { window.print(); }
 
         window.addEventListener('load', function() {
             populateFilters();
