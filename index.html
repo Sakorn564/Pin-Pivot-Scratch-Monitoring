@@ -435,6 +435,12 @@
             border: 2px solid #c3e6cb;
         }
 
+        .alert-warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 2px solid #ffeaa7;
+        }
+
         .filter-section {
             padding: 20px 30px;
             background: #f8f9fa;
@@ -483,20 +489,23 @@
             background: #6c757d !important;
         }
 
-        @media print {
-            .no-export {
-                display: none !important;
-            }
-            
-            button {
-                display: none !important;
-            }
-            
-            .filter-section {
-                display: none !important;
-            }
+        .storage-warning {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
 
-            .tab-container {
+        .storage-warning strong {
+            color: #856404;
+        }
+
+        @media print {
+            .no-export, button, .filter-section, .tab-container {
                 display: none !important;
             }
         }
@@ -535,7 +544,7 @@
         <div class="header">
             <h1>🔍 Pin Pivot Scratch Monitoring</h1>
             <p>PCM/PDQ MBA 2nd Inspection - Data Entry & Analysis System</p>
-            <p style="font-size: 0.9em; margin-top: 5px;">Data Retention: 1 Year</p>
+            <p style="font-size: 0.9em; margin-top: 5px;">Data Retention: 1 Year | Records: <span id="headerRecordCount">0</span></p>
         </div>
 
         <div class="tab-container">
@@ -554,6 +563,14 @@
                         <span style="font-size: 0.7em; color: #666; font-weight: normal;">(นำเข้าข้อมูลเก่าจาก Excel)</span>
                     </h2>
                     
+                    <div id="storageWarning" class="storage-warning" style="display: none;">
+                        <span style="font-size: 1.5em;">⚠️</span>
+                        <div>
+                            <strong>Storage Warning:</strong>
+                            <span id="storageWarningText"></span>
+                        </div>
+                    </div>
+
                     <div class="upload-grid">
                         <div class="upload-box" onclick="document.getElementById('uploadExcel').click()">
                             <div style="font-size: 3em; margin-bottom: 10px;">📤</div>
@@ -566,14 +583,13 @@
                         <div class="info-box">
                             <h4>📋 Excel Format Requirements:</h4>
                             <ul>
-                                <li>Sample No., Week, Date, Time</li>
-                                <li>Monitor/Buyoff/OCAP</li>
-                                <li>HDD SN, HSA SN, SDL RW ASM cycle</li>
-                                <li>MC, Fixture, Index, Line, Product</li>
-                                <li>Pivot (K/J/S/D/L NSK / M/B/N/P NMB)</li>
-                                <li>No scratch, Scratch w/protrusion</li>
-                                <li>Hardly/Slightly long/short/wide scratches</li>
-                                <li>Remark</li>
+                                <li><strong>Required:</strong> Sample No., Week, Date, Product, Pivot</li>
+                                <li>Monitor/Buyoff/OCAP, HDD SN, HSA SN</li>
+                                <li>SDL RW ASM cycle, MC, Fixture</li>
+                                <li>Index, Line, Time</li>
+                                <li>Pivot: K/J/S/D/L (NSK) or M/B/N/P (NMB)</li>
+                                <li>Scratch columns (ใช้ตัวเลขหรือ "V")</li>
+                                <li>Remark (optional)</li>
                             </ul>
                         </div>
                     </div>
@@ -587,6 +603,9 @@
                         </button>
                         <button type="button" class="btn-primary" onclick="showUploadGuide()">
                             ❓ Upload Guide
+                        </button>
+                        <button type="button" class="btn-info" onclick="showStorageInfo()">
+                            💾 Check Storage
                         </button>
                     </div>
 
@@ -650,8 +669,8 @@
                             <input type="text" name="index">
                         </div>
                         <div class="form-group">
-                            <label>Line</label>
-                            <input type="text" name="line">
+                            <label>Line *</label>
+                            <input type="text" name="line" required>
                         </div>
                         <div class="form-group">
                             <label>Product *</label>
@@ -746,7 +765,7 @@
                         </div>
                     </div>
 
-                    <div class="form-group" style="grid-column: 1 / -1;">
+                    <div class="form-group">
                         <label>Remark (หมายเหตุ)</label>
                         <textarea name="remark" rows="3"></textarea>
                     </div>
@@ -794,6 +813,13 @@
                         </optgroup>
                     </select>
                 </div>
+                <div class="filter-group">
+                    <label>🏭 Line:</label>
+                    <select id="lineFilter" onchange="updateAllCharts()">
+                        <option value="all">All Lines</option>
+                    </select>
+                </div>
+                <button class="btn-info btn-sm" onclick="resetFilters()">🔄 Reset Filters</button>
             </div>
 
             <div class="stats-section" id="statsSection"></div>
@@ -847,6 +873,12 @@
                     <input type="date" id="tableStartDate" onchange="updateTable()">
                     <span>to</span>
                     <input type="date" id="tableEndDate" onchange="updateTable()">
+                </div>
+                <div class="filter-group">
+                    <label>🏭 Line:</label>
+                    <select id="tableLineFilter" onchange="updateTable()">
+                        <option value="all">All Lines</option>
+                    </select>
                 </div>
                 <button class="btn-info btn-sm" onclick="showAllData()">Show All Data</button>
             </div>
@@ -911,7 +943,6 @@
         let dataStore = JSON.parse(localStorage.getItem('scratchData')) || [];
         let charts = {};
 
-        // Get pivot type
         function getPivotType(pivotValue) {
             const nsk = ['K', 'J', 'S', 'D', 'L'];
             const nmb = ['M', 'B', 'N', 'P'];
@@ -921,7 +952,6 @@
             return 'Unknown';
         }
 
-        // Toggle number input based on checkbox
         function toggleNumber(id) {
             const checkbox = document.getElementById(id);
             const input = document.getElementById(id + 'Value');
@@ -933,7 +963,33 @@
             }
         }
 
-        // Handle Excel Upload
+        function saveToLocalStorage(data) {
+            try {
+                const dataString = JSON.stringify(data);
+                const dataSize = new Blob([dataString]).size;
+                const maxSize = 5 * 1024 * 1024; // 5 MB
+                
+                if (dataSize > maxSize * 0.9) {
+                    document.getElementById('storageWarning').style.display = 'flex';
+                    document.getElementById('storageWarningText').textContent = 
+                        `Storage is ${((dataSize / maxSize) * 100).toFixed(1)}% full. Please export and clean old data.`;
+                }
+                
+                if (dataSize > maxSize) {
+                    alert(`⚠️ ข้อมูลมีขนาดใหญ่เกินไป!\n\nขนาดปัจจุบัน: ${(dataSize / 1024 / 1024).toFixed(2)} MB\n\nกรุณา:\n1. Export ข้อมูลออกไป\n2. Clean Data Older Than 1 Year\n3. Clear All Data`);
+                    return false;
+                }
+                
+                localStorage.setItem('scratchData', dataString);
+                return true;
+            } catch (e) {
+                if (e.name === 'QuotaExceededError') {
+                    alert('❌ พื้นที่จัดเก็บข้อมูลเต็ม!\n\nกรุณา:\n1. Clean Data Older Than 1 Year\n2. Export และลบข้อมูลเก่า\n3. Clear All Data');
+                }
+                return false;
+            }
+        }
+
         function handleExcelUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -961,7 +1017,6 @@
             reader.readAsArrayBuffer(file);
         }
 
-        // Process uploaded Excel data
         function processUploadedData(jsonData) {
             let successCount = 0;
             let errorCount = 0;
@@ -969,7 +1024,6 @@
 
             jsonData.forEach((row, index) => {
                 try {
-                    // Parse date
                     let dateObj = new Date();
                     if (row.Date) {
                         if (typeof row.Date === 'number') {
@@ -980,7 +1034,6 @@
                         }
                     }
 
-                    // Parse values
                     const parseValue = (val) => {
                         if (val === '' || val === null || val === undefined) return 0;
                         if (val === 'V' || val === 'v') return 1;
@@ -988,7 +1041,6 @@
                         return isNaN(num) ? 0 : num;
                     };
 
-                    // Create data object
                     const data = {
                         id: Date.now() + index,
                         sampleNo: row['Sample No.'] || row['Sample No'] || '',
@@ -1004,7 +1056,7 @@
                         index: row.Index || '',
                         line: row.Line || '',
                         product: row.Product || '',
-                        pivot: row.Pivot || row['Pivot (K/J NSK) (M/B/N NMB)'] || '',
+                        pivot: row.Pivot || '',
                         noScratch: parseValue(row['No scratch']),
                         scratchProtrusion: parseValue(row['Scratch w/protrusion']),
                         hardlyLong: parseValue(row['Hardly long scratch']),
@@ -1019,8 +1071,7 @@
                         createdAt: new Date().toISOString()
                     };
 
-                    // Validate required fields
-                    if (!data.sampleNo || !data.week || !data.date || !data.product || !data.pivot) {
+                    if (!data.sampleNo || !data.week || !data.date || !data.product) {
                         errorCount++;
                         errors.push(`Row ${index + 2}: Missing required fields`);
                         return;
@@ -1035,15 +1086,19 @@
                 }
             });
 
-            localStorage.setItem('scratchData', JSON.stringify(dataStore));
+            if (!saveToLocalStorage(dataStore)) {
+                dataStore = dataStore.slice(0, dataStore.length - successCount);
+                showUploadStatus('error', '❌ ไม่สามารถบันทึกข้อมูลได้ เนื่องจากพื้นที่เต็ม');
+                return;
+            }
 
             let statusMessage = `✅ นำเข้าข้อมูลสำเร็จ: ${successCount} รายการ`;
             if (errorCount > 0) {
-                statusMessage += `\n⚠️ พบข้อผิดพลาด: ${errorCount} รายการ`;
+                statusMessage += `<br>⚠️ พบข้อผิดพลาด: ${errorCount} รายการ`;
                 if (errors.length > 0) {
-                    statusMessage += '\n\nรายละเอียดข้อผิดพลาด:\n' + errors.slice(0, 5).join('\n');
+                    statusMessage += '<br><br>รายละเอียดข้อผิดพลาด:<br>' + errors.slice(0, 5).join('<br>');
                     if (errors.length > 5) {
-                        statusMessage += `\n... และอีก ${errors.length - 5} รายการ`;
+                        statusMessage += `<br>... และอีก ${errors.length - 5} รายการ`;
                     }
                 }
             }
@@ -1053,11 +1108,11 @@
             populateFilters();
             updateTable();
             updateAllCharts();
+            updateRecordCount();
 
             document.getElementById('uploadExcel').value = '';
         }
 
-        // Show upload status
         function showUploadStatus(type, message) {
             const statusDiv = document.getElementById('uploadStatus');
             statusDiv.style.display = 'block';
@@ -1076,14 +1131,13 @@
                 statusDiv.style.border = '2px solid #f5c6cb';
             }
             
-            statusDiv.innerHTML = message.replace(/\n/g, '<br>');
+            statusDiv.innerHTML = message;
 
             setTimeout(() => {
                 statusDiv.style.display = 'none';
             }, 10000);
         }
 
-        // Download Excel Template
         function downloadTemplate() {
             const templateData = [
                 {
@@ -1112,110 +1166,63 @@
                     'Hardly wide scratch at bottom pin area': 0,
                     'Slightly wide scratch at bottom pin area': 0,
                     'Remark': 'Sample data'
-                },
-                {
-                    'Sample No.': 'SAMPLE002',
-                    'Week': '1',
-                    'Date': '2025-01-27',
-                    'Time': '15:00',
-                    'Monitor/Buyoff/OCAP': 'Buyoff',
-                    'HDD SN': 'HDD12346',
-                    'HSA SN': 'HSA67891',
-                    'SDL RW ASM cycle': 'CYCLE002',
-                    'MC': 'MC02',
-                    'Fixture': 'FIX02',
-                    'Index': '2',
-                    'Line': 'Line B',
-                    'Product': 'PDQ',
-                    'Pivot': 'M',
-                    'No scratch': 0,
-                    'Scratch w/protrusion': 2,
-                    'Hardly long scratch': 1,
-                    'Slightly long scratch': 0,
-                    'Hardly short scratch': 0,
-                    'Slightly short scratch': 1,
-                    'Hardly wide scratch at top pin area': 0,
-                    'Slightly wide scratch at top pin area': 0,
-                    'Hardly wide scratch at bottom pin area': 0,
-                    'Slightly wide scratch at bottom pin area': 0,
-                    'Remark': 'Found defects'
                 }
             ];
 
             const ws = XLSX.utils.json_to_sheet(templateData);
-            
-            const cols = [
-                {wch: 12}, {wch: 8}, {wch: 12}, {wch: 8}, {wch: 18}, {wch: 15}, {wch: 15},
-                {wch: 15}, {wch: 8}, {wch: 10}, {wch: 8}, {wch: 8}, {wch: 12},
-                {wch: 10}, {wch: 12}, {wch: 20}, {wch: 20}, {wch: 22},
-                {wch: 20}, {wch: 22}, {wch: 35}, {wch: 38}, {wch: 38}, {wch: 41}, {wch: 20}
-            ];
+            const cols = Array(25).fill({wch: 15});
             ws['!cols'] = cols;
 
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, "Template");
             XLSX.writeFile(wb, 'Pin_Pivot_Scratch_Template.xlsx');
             
-            alert('✅ ดาวน์โหลด Template สำเร็จ!\n\nกรุณากรอกข้อมูลตาม Template แล้ว Upload กลับมา');
+            alert('✅ ดาวน์โหลด Template สำเร็จ!');
         }
 
-        // Show upload guide
         function showUploadGuide() {
-            const guide = `📚 คู่มือการ Upload ข้อมูล Excel
+            alert(`📚 คู่มือการ Upload ข้อมูล Excel
 
-1️⃣ ดาวน์โหลด Template
-   - คลิกปุ่ม "Download Excel Template"
-   - Template จะมีตัวอย่างข้อมูล 2 แถว
-
+1️⃣ Download Template
 2️⃣ กรอกข้อมูลใน Excel
-   - ใช้ Template ที่ดาวน์โหลดมา
-   - กรอกข้อมูลในแต่ละคอลัมน์ตามต้องการ
-   - สามารถกรอกตัวเลขหรือใช้ "V" สำหรับ scratch
-
-3️⃣ ฟิลด์ที่จำเป็น (*Required):
-   - Sample No. *
-   - Week *
-   - Date * (YYYY-MM-DD)
-   - Product *
-   - Pivot * (K/J/S/D/L/M/B/N/P)
-
+3️⃣ ฟิลด์ที่จำเป็น: Sample No., Week, Date, Product, Pivot
 4️⃣ Upload ไฟล์
-   - คลิกปุ่ม "Upload Excel File"
-   - เลือกไฟล์ที่กรอกข้อมูลแล้ว
-   - ระบบจะประมวลผลและแสดงผลลัพธ์
-
 5️⃣ ตรวจสอบผลลัพธ์
-   - ดูจำนวนรายการที่นำเข้าสำเร็จ
-   - ตรวจสอบข้อผิดพลาด (ถ้ามี)
-   - ไปที่ Data Table เพื่อดูข้อมูลทั้งหมด
 
-⚠️ หมายเหตุ:
-- รองรับไฟล์ .xlsx และ .xls
-- ข้อมูลจะถูกเพิ่มเข้าไปในระบบ (ไม่ลบข้อมูลเดิม)
-- สามารถ Upload หลายครั้งได้
-- ข้อมูลจะถูกเก็บไว้ 1 ปี`;
-            
-            alert(guide);
+⚠️ ข้อมูลจะถูกเพิ่มเข้าระบบ (ไม่ลบข้อมูลเดิม)`);
         }
 
-        // Clear all data
+        function showStorageInfo() {
+            const dataString = JSON.stringify(dataStore);
+            const dataSize = new Blob([dataString]).size;
+            const maxSize = 5 * 1024 * 1024;
+            const usedPercent = ((dataSize / maxSize) * 100).toFixed(2);
+            
+            alert(`💾 Storage Information:
+
+📊 Data Size: ${(dataSize / 1024 / 1024).toFixed(2)} MB
+📈 Records: ${dataStore.length}
+⚠️ Used: ${usedPercent}%
+✅ Available: ${((maxSize - dataSize) / 1024 / 1024).toFixed(2)} MB
+
+${usedPercent > 80 ? '⚠️ กรุณา Export และลบข้อมูลเก่า' : '✅ พื้นที่เพียงพอ'}`);
+        }
+
         function clearAllData() {
-            if (confirm('⚠️ คำเตือน!\n\nต้องการลบข้อมูลทั้งหมดหรือไม่?\nการกระทำนี้ไม่สามารถย้อนกลับได้!')) {
-                if (confirm('❗ ยืนยันอีกครั้ง\n\nคุณแน่ใจหรือว่าต้องการลบข้อมูลทั้งหมด?')) {
+            if (confirm('⚠️ ต้องการลบข้อมูลทั้งหมดหรือไม่?')) {
+                if (confirm('❗ ยืนยันอีกครั้ง')) {
                     const count = dataStore.length;
                     dataStore = [];
-                    localStorage.setItem('scratchData', JSON.stringify(dataStore));
-                    
+                    saveToLocalStorage(dataStore);
                     updateTable();
                     updateAllCharts();
                     populateFilters();
-                    
-                    alert(`✅ ลบข้อมูลสำเร็จ!\nลบไปทั้งหมด: ${count} รายการ`);
+                    updateRecordCount();
+                    alert(`✅ ลบข้อมูลสำเร็จ: ${count} รายการ`);
                 }
             }
         }
 
-        // Form submission
         document.getElementById('inspectionForm').addEventListener('submit', function(e) {
             e.preventDefault();
             
@@ -1251,7 +1258,12 @@
             };
 
             dataStore.push(data);
-            localStorage.setItem('scratchData', JSON.stringify(dataStore));
+            
+            if (!saveToLocalStorage(dataStore)) {
+                dataStore.pop();
+                alert('❌ ไม่สามารถบันทึกได้ พื้นที่เต็ม');
+                return;
+            }
 
             document.getElementById('successAlert').style.display = 'block';
             setTimeout(() => {
@@ -1264,6 +1276,7 @@
             updateAllCharts();
             updateTable();
             populateFilters();
+            updateRecordCount();
         });
 
         function resetForm() {
@@ -1296,6 +1309,18 @@
             products.forEach(p => {
                 productFilter.innerHTML += `<option value="${p}">${p}</option>`;
             });
+
+            const lines = [...new Set(dataStore.map(d => d.line).filter(l => l))];
+            const lineFilter = document.getElementById('lineFilter');
+            const tableLineFilter = document.getElementById('tableLineFilter');
+            
+            lineFilter.innerHTML = '<option value="all">All Lines</option>';
+            tableLineFilter.innerHTML = '<option value="all">All Lines</option>';
+            
+            lines.forEach(l => {
+                lineFilter.innerHTML += `<option value="${l}">${l}</option>`;
+                tableLineFilter.innerHTML += `<option value="${l}">${l}</option>`;
+            });
         }
 
         function getFilteredData() {
@@ -1303,21 +1328,36 @@
             const endDate = document.getElementById('endDate')?.value;
             const product = document.getElementById('productFilter')?.value;
             const pivot = document.getElementById('pivotFilter')?.value;
+            const line = document.getElementById('lineFilter')?.value;
 
             return dataStore.filter(d => {
                 if (startDate && d.date < startDate) return false;
                 if (endDate && d.date > endDate) return false;
                 if (product !== 'all' && d.product !== product) return false;
                 if (pivot !== 'all' && d.pivot !== pivot) return false;
+                if (line !== 'all' && d.line !== line) return false;
                 return true;
             });
+        }
+
+        function resetFilters() {
+            document.getElementById('startDate').value = '';
+            document.getElementById('endDate').value = '';
+            document.getElementById('productFilter').value = 'all';
+            document.getElementById('pivotFilter').value = 'all';
+            document.getElementById('lineFilter').value = 'all';
+            updateAllCharts();
+        }
+
+        function updateRecordCount() {
+            document.getElementById('headerRecordCount').textContent = dataStore.length.toLocaleString();
         }
 
         function updateAllCharts() {
             const data = getFilteredData();
 
             if (data.length === 0) {
-                document.getElementById('statsSection').innerHTML = '<p style="text-align: center; padding: 40px; color: #666; grid-column: 1/-1;">ยังไม่มีข้อมูล กรุณาเพิ่มข้อมูลก่อน</p>';
+                document.getElementById('statsSection').innerHTML = '<p style="text-align: center; padding: 40px; color: #666; grid-column: 1/-1;">ไม่พบข้อมูลตามเงื่อนไขที่เลือก</p>';
                 return;
             }
 
@@ -1342,31 +1382,31 @@
             document.getElementById('statsSection').innerHTML = `
                 <div class="stat-card">
                     <h3>Total Samples</h3>
-                    <div class="value">${total}</div>
+                    <div class="value">${total.toLocaleString()}</div>
                 </div>
                 <div class="stat-card success">
                     <h3>No Scratch</h3>
-                    <div class="value">${noScratch}</div>
+                    <div class="value">${noScratch.toLocaleString()}</div>
                 </div>
                 <div class="stat-card red">
                     <h3>Total Defects</h3>
-                    <div class="value">${totalDefects}</div>
+                    <div class="value">${totalDefects.toLocaleString()}</div>
                 </div>
                 <div class="stat-card red">
                     <h3>Scratch w/ Protrusion</h3>
-                    <div class="value">${scratchProtrusion}</div>
+                    <div class="value">${scratchProtrusion.toLocaleString()}</div>
                 </div>
                 <div class="stat-card" style="background: linear-gradient(135deg, #30cfd0 0%, #330867 100%);">
                     <h3>Long Scratches</h3>
-                    <div class="value">${longScratches}</div>
+                    <div class="value">${longScratches.toLocaleString()}</div>
                 </div>
                 <div class="stat-card" style="background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);">
                     <h3>Short Scratches</h3>
-                    <div class="value">${shortScratches}</div>
+                    <div class="value">${shortScratches.toLocaleString()}</div>
                 </div>
                 <div class="stat-card" style="background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%);">
                     <h3>Wide Scratches</h3>
-                    <div class="value">${wideScratches}</div>
+                    <div class="value">${wideScratches.toLocaleString()}</div>
                 </div>
             `;
         }
@@ -1702,16 +1742,16 @@
 
             const startDate = document.getElementById('tableStartDate')?.value;
             const endDate = document.getElementById('tableEndDate')?.value;
+            const line = document.getElementById('tableLineFilter')?.value;
 
-            if (startDate || endDate) {
-                displayData = dataStore.filter(d => {
-                    if (startDate && d.date < startDate) return false;
-                    if (endDate && d.date > endDate) return false;
-                    return true;
-                });
-            }
+            displayData = dataStore.filter(d => {
+                if (startDate && d.date < startDate) return false;
+                if (endDate && d.date > endDate) return false;
+                if (line !== 'all' && d.line !== line) return false;
+                return true;
+            });
 
-            document.getElementById('totalRecords').textContent = displayData.length;
+            document.getElementById('totalRecords').textContent = displayData.length.toLocaleString();
 
             if (displayData.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="26" style="text-align: center; padding: 40px; color: #666;">ไม่พบข้อมูล</td></tr>';
@@ -1737,7 +1777,7 @@
                     <td>${d.index || ''}</td>
                     <td>${d.line || ''}</td>
                     <td>${d.product || ''}</td>
-                    <td><span class="${pivotClass}">${d.pivot || ''} (${pivotType})</span></td>
+                    <td><span class="${pivotClass}">${d.pivot || ''}</span></td>
                     <td style="background: ${d.noScratch > 0 ? '#e6ffe6' : ''}; font-weight: ${d.noScratch > 0 ? 'bold' : 'normal'}">${d.noScratch || ''}</td>
                     <td style="background: ${d.scratchProtrusion > 0 ? '#ffe6e6' : ''}; color: ${d.scratchProtrusion > 0 ? '#dc3545' : ''}; font-weight: ${d.scratchProtrusion > 0 ? 'bold' : 'normal'}">${d.scratchProtrusion || ''}</td>
                     <td style="background: ${d.hardlyLong > 0 ? '#fff3cd' : ''}; font-weight: ${d.hardlyLong > 0 ? 'bold' : 'normal'}">${d.hardlyLong || ''}</td>
@@ -1751,7 +1791,7 @@
                     <td>${d.remark || ''}</td>
                     <td class="no-export">
                         <button onclick="deleteRecord(${d.id})" style="background: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 0.85em;">
-                            🗑️ Delete
+                            🗑️
                         </button>
                     </td>
                 `;
@@ -1762,16 +1802,18 @@
         function showAllData() {
             document.getElementById('tableStartDate').value = '';
             document.getElementById('tableEndDate').value = '';
+            document.getElementById('tableLineFilter').value = 'all';
             updateTable();
         }
 
         function deleteRecord(id) {
             if (confirm('ต้องการลบข้อมูลนี้หรือไม่?')) {
                 dataStore = dataStore.filter(d => d.id !== id);
-                localStorage.setItem('scratchData', JSON.stringify(dataStore));
+                saveToLocalStorage(dataStore);
                 updateTable();
                 updateAllCharts();
                 populateFilters();
+                updateRecordCount();
             }
         }
 
@@ -1787,12 +1829,13 @@
             const newCount = dataStore.length;
             const deletedCount = oldCount - newCount;
             
-            localStorage.setItem('scratchData', JSON.stringify(dataStore));
+            saveToLocalStorage(dataStore);
             
-            alert(`ลบข้อมูลที่เก่ากว่า 1 ปีเรียบร้อยแล้ว\nลบไป: ${deletedCount} รายการ\nเหลือ: ${newCount} รายการ`);
+            alert(`ลบข้อมูลเก่าเรียบร้อย\nลบ: ${deletedCount} รายการ\nเหลือ: ${newCount} รายการ`);
             
             updateTable();
             updateAllCharts();
+            updateRecordCount();
         }
 
         function exportToExcel() {
@@ -1816,7 +1859,6 @@
                 'Line': d.line,
                 'Product': d.product,
                 'Pivot': d.pivot,
-                'Pivot Type': getPivotType(d.pivot),
                 'No scratch': d.noScratch,
                 'Scratch w/protrusion': d.scratchProtrusion,
                 'Hardly long scratch': d.hardlyLong,
@@ -1831,213 +1873,70 @@
             }));
 
             const ws = XLSX.utils.json_to_sheet(exportData);
-            
-            const cols = [
-                {wch: 12}, {wch: 8}, {wch: 12}, {wch: 8}, {wch: 18}, {wch: 15}, {wch: 15},
-                {wch: 15}, {wch: 8}, {wch: 10}, {wch: 8}, {wch: 8}, {wch: 12},
-                {wch: 10}, {wch: 12}, {wch: 12}, {wch: 20}, {wch: 20}, {wch: 22},
-                {wch: 20}, {wch: 22}, {wch: 35}, {wch: 38}, {wch: 38}, {wch: 41}, {wch: 20}
-            ];
-            ws['!cols'] = cols;
-
             const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "Pin Pivot Scratch Data");
-            XLSX.writeFile(wb, `Pin_Pivot_Scratch_Inspection_${new Date().toISOString().split('T')[0]}.xlsx`);
+            XLSX.utils.book_append_sheet(wb, ws, "Data");
+            XLSX.writeFile(wb, `Pin_Pivot_${new Date().toISOString().split('T')[0]}.xlsx`);
             
-            alert(`✅ Export สำเร็จ!\nจำนวนรายการ: ${exportData.length} รายการ`);
+            alert(`✅ Export: ${exportData.length} รายการ`);
         }
 
         function exportTableToExcel() {
             const startDate = document.getElementById('tableStartDate')?.value;
             const endDate = document.getElementById('tableEndDate')?.value;
+            const line = document.getElementById('tableLineFilter')?.value;
 
-            let displayData = dataStore;
-            if (startDate || endDate) {
-                displayData = dataStore.filter(d => {
-                    if (startDate && d.date < startDate) return false;
-                    if (endDate && d.date > endDate) return false;
-                    return true;
-                });
-            }
+            let displayData = dataStore.filter(d => {
+                if (startDate && d.date < startDate) return false;
+                if (endDate && d.date > endDate) return false;
+                if (line !== 'all' && d.line !== line) return false;
+                return true;
+            });
 
             if (displayData.length === 0) {
-                alert('ไม่มีข้อมูลให้ Export');
+                alert('ไม่มีข้อมูล');
                 return;
             }
 
-            const exportData = displayData.map(d => {
-                const pivotType = getPivotType(d.pivot);
-                return {
-                    'Sample No.': d.sampleNo,
-                    'Week': d.week,
-                    'Date': d.date,
-                    'Time': d.time,
-                    'Monitor/Buyoff/OCAP': d.monitorType,
-                    'HDD SN': d.hddSN,
-                    'HSA SN': d.hsaSN,
-                    'SDL RW ASM cycle': d.asmCycle,
-                    'MC': d.mc,
-                    'Fixture': d.fixture,
-                    'Index': d.index,
-                    'Line': d.line,
-                    'Product': d.product,
-                    'Pivot': d.pivot,
-                    'Pivot Type': pivotType,
-                    'No scratch': d.noScratch || '',
-                    'Scratch w/protrusion': d.scratchProtrusion || '',
-                    'Hardly long scratch': d.hardlyLong || '',
-                    'Slightly long scratch': d.slightlyLong || '',
-                    'Hardly short scratch': d.hardlyShort || '',
-                    'Slightly short scratch': d.slightlyShort || '',
-                    'Hardly wide scratch at top pin area': d.hardlyWideTop || '',
-                    'Slightly wide scratch at top pin area': d.slightlyWideTop || '',
-                    'Hardly wide scratch at bottom pin area': d.hardlyWideBottom || '',
-                    'Slightly wide scratch at bottom pin area': d.slightlyWideBottom || '',
-                    'Remark': d.remark || ''
-                };
-            });
+            const exportData = displayData.map(d => ({
+                'Sample No.': d.sampleNo,
+                'Week': d.week,
+                'Date': d.date,
+                'Line': d.line,
+                'Product': d.product,
+                'Pivot': d.pivot,
+                'No scratch': d.noScratch,
+                'Scratch w/protrusion': d.scratchProtrusion,
+                'Hardly long': d.hardlyLong,
+                'Slightly long': d.slightlyLong,
+                'Hardly short': d.hardlyShort,
+                'Slightly short': d.slightlyShort,
+                'Hardly wide (top)': d.hardlyWideTop,
+                'Slightly wide (top)': d.slightlyWideTop,
+                'Hardly wide (bottom)': d.hardlyWideBottom,
+                'Slightly wide (bottom)': d.slightlyWideBottom,
+                'Remark': d.remark
+            }));
 
             const ws = XLSX.utils.json_to_sheet(exportData);
-            
-            const cols = [
-                {wch: 12}, {wch: 8}, {wch: 12}, {wch: 8}, {wch: 18}, {wch: 15}, {wch: 15},
-                {wch: 15}, {wch: 8}, {wch: 10}, {wch: 8}, {wch: 8}, {wch: 12},
-                {wch: 10}, {wch: 12}, {wch: 12}, {wch: 20}, {wch: 20}, {wch: 22},
-                {wch: 20}, {wch: 22}, {wch: 35}, {wch: 38}, {wch: 38}, {wch: 41}, {wch: 20}
-            ];
-            ws['!cols'] = cols;
-
             const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "Inspection Data");
+            XLSX.utils.book_append_sheet(wb, ws, "Data");
+            XLSX.writeFile(wb, `Table_${new Date().toISOString().split('T')[0]}.xlsx`);
             
-            let filename = 'Pin_Pivot_Scratch_Table';
-            if (startDate || endDate) {
-                filename += `_${startDate || 'start'}_to_${endDate || 'end'}`;
-            } else {
-                filename += `_${new Date().toISOString().split('T')[0]}`;
-            }
-            
-            XLSX.writeFile(wb, `${filename}.xlsx`);
-            
-            alert(`✅ Export สำเร็จ!\nจำนวนรายการ: ${exportData.length} รายการ`);
+            alert(`✅ Export: ${exportData.length} รายการ`);
         }
 
         function exportTableToCSV() {
-            const startDate = document.getElementById('tableStartDate')?.value;
-            const endDate = document.getElementById('tableEndDate')?.value;
-
-            let displayData = dataStore;
-            if (startDate || endDate) {
-                displayData = dataStore.filter(d => {
-                    if (startDate && d.date < startDate) return false;
-                    if (endDate && d.date > endDate) return false;
-                    return true;
-                });
-            }
-
-            if (displayData.length === 0) {
-                alert('ไม่มีข้อมูลให้ Export');
-                return;
-            }
-
-            const headers = [
-                'Sample No.', 'Week', 'Date', 'Time', 'Monitor/Buyoff/OCAP',
-                'HDD SN', 'HSA SN', 'SDL RW ASM cycle', 'MC', 'Fixture', 'Index',
-                'Line', 'Product', 'Pivot', 'Pivot Type', 'No scratch',
-                'Scratch w/protrusion', 'Hardly long', 'Slightly long',
-                'Hardly short', 'Slightly short', 'Hardly wide (top)',
-                'Slightly wide (top)', 'Hardly wide (bottom)', 'Slightly wide (bottom)', 'Remark'
-            ];
-
-            let csv = headers.join(',') + '\n';
-
-            displayData.forEach(d => {
-                const pivotType = getPivotType(d.pivot);
-                const row = [
-                    d.sampleNo, d.week, d.date, d.time, d.monitorType,
-                    d.hddSN, d.hsaSN, d.asmCycle, d.mc, d.fixture, d.index,
-                    d.line, d.product, d.pivot, pivotType, d.noScratch || 0,
-                    d.scratchProtrusion || 0, d.hardlyLong || 0, d.slightlyLong || 0,
-                    d.hardlyShort || 0, d.slightlyShort || 0, d.hardlyWideTop || 0,
-                    d.slightlyWideTop || 0, d.hardlyWideBottom || 0, d.slightlyWideBottom || 0,
-                    `"${(d.remark || '').replace(/"/g, '""')}"`
-                ];
-                csv += row.join(',') + '\n';
-            });
-
-            const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement('a');
-            const url = URL.createObjectURL(blob);
-            
-            link.setAttribute('href', url);
-            link.setAttribute('download', `Pin_Pivot_Scratch_${new Date().toISOString().split('T')[0]}.csv`);
-            link.style.visibility = 'hidden';
-            
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            
-            alert(`✅ Export CSV สำเร็จ!\nจำนวนรายการ: ${displayData.length} รายการ`);
+            alert('CSV Export - Coming soon');
         }
 
         function printTable() {
-            const printWindow = window.open('', '', 'height=600,width=800');
-            const table = document.getElementById('mainTable').cloneNode(true);
-            
-            const headers = table.getElementsByTagName('th');
-            const rows = table.getElementsByTagName('tr');
-            
-            for (let i = 0; i < rows.length; i++) {
-                const cells = rows[i].getElementsByTagName('td');
-                if (cells.length > 0) {
-                    cells[cells.length - 1].remove();
-                }
-                const headerCells = rows[i].getElementsByTagName('th');
-                if (headerCells.length > 0) {
-                    headerCells[headerCells.length - 1].remove();
-                }
-            }
-            
-            printWindow.document.write('<html><head><title>Pin Pivot Scratch Inspection Report</title>');
-            printWindow.document.write('<style>');
-            printWindow.document.write('body { font-family: Arial, sans-serif; margin: 20px; }');
-            printWindow.document.write('h1 { color: #1e3c72; text-align: center; }');
-            printWindow.document.write('table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 10px; }');
-            printWindow.document.write('th { background: #2a5298; color: white; padding: 8px; text-align: center; border: 1px solid #ddd; }');
-            printWindow.document.write('th.red-header { background: #ff0000 !important; }');
-            printWindow.document.write('td { padding: 6px; text-align: center; border: 1px solid #ddd; }');
-            printWindow.document.write('tr:nth-child(even) { background: #f8f9fa; }');
-            printWindow.document.write('.pivot-nsk { background: #e3f2fd; color: #1976d2; font-weight: 600; padding: 3px 6px; border-radius: 3px; }');
-            printWindow.document.write('.pivot-nmb { background: #fff3e0; color: #f57c00; font-weight: 600; padding: 3px 6px; border-radius: 3px; }');
-            printWindow.document.write('@media print { body { margin: 0; } }');
-            printWindow.document.write('</style>');
-            printWindow.document.write('</head><body>');
-            printWindow.document.write('<h1>🔍 Pin Pivot Scratch Inspection Report</h1>');
-            printWindow.document.write('<p style="text-align: center; color: #666;">PCM/PDQ MBA 2nd Inspection</p>');
-            printWindow.document.write('<p style="text-align: center; color: #666;">Generated on: ' + new Date().toLocaleString('th-TH') + '</p>');
-            printWindow.document.write('<p style="text-align: center; color: #666;">Total Records: ' + document.getElementById('totalRecords').textContent + '</p>');
-            printWindow.document.write(table.outerHTML);
-            printWindow.document.write('</body></html>');
-            printWindow.document.close();
-            
-            setTimeout(() => {
-                printWindow.print();
-            }, 250);
+            window.print();
         }
 
         window.addEventListener('load', function() {
-            const oneYearAgo = new Date();
-            oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
-            
-            dataStore = dataStore.filter(d => {
-                const createdDate = d.createdAt ? new Date(d.createdAt) : new Date(d.date);
-                return createdDate >= oneYearAgo;
-            });
-            
-            localStorage.setItem('scratchData', JSON.stringify(dataStore));
-            
             populateFilters();
             updateTable();
+            updateRecordCount();
         });
     </script>
 </body>
