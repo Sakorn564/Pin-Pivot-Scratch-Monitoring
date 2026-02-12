@@ -1,0 +1,1670 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pin Pivot Scratch Monitoring System</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.2em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1em;
+            opacity: 0.95;
+        }
+
+        .tab-container {
+            display: flex;
+            background: #f8f9fa;
+            border-bottom: 3px solid #1e3c72;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 1.1em;
+            transition: all 0.3s ease;
+            border-bottom: 4px solid transparent;
+        }
+
+        .tab:hover {
+            background: #e9ecef;
+        }
+
+        .tab.active {
+            background: white;
+            border-bottom: 4px solid #2a5298;
+            color: #1e3c72;
+        }
+
+        .content {
+            display: none;
+        }
+
+        .content.active {
+            display: block;
+        }
+
+        .input-section {
+            padding: 30px;
+            background: #f8f9fa;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .form-group label {
+            font-weight: 600;
+            color: #495057;
+            font-size: 0.9em;
+        }
+
+        .form-group input, .form-group select, .form-group textarea {
+            padding: 12px;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: all 0.3s ease;
+        }
+
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+            outline: none;
+            border-color: #2a5298;
+            box-shadow: 0 0 0 3px rgba(42, 82, 152, 0.1);
+        }
+
+        .scratch-section {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+
+        .scratch-section h3 {
+            color: #1e3c72;
+            margin-bottom: 20px;
+            font-size: 1.3em;
+            border-bottom: 3px solid #2a5298;
+            padding-bottom: 10px;
+        }
+
+        .scratch-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 15px;
+        }
+
+        .scratch-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+
+        .scratch-item:hover {
+            background: #e9ecef;
+        }
+
+        .scratch-item.red {
+            background: #ffe6e6;
+            border: 2px solid #dc3545;
+        }
+
+        .scratch-item.red:hover {
+            background: #ffcccc;
+        }
+
+        .scratch-item input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+
+        .scratch-item input[type="number"] {
+            width: 80px;
+            padding: 8px;
+            border: 2px solid #dee2e6;
+            border-radius: 6px;
+            font-size: 1em;
+            text-align: center;
+        }
+
+        .scratch-item input[type="number"]:disabled {
+            background: #e9ecef;
+            cursor: not-allowed;
+        }
+
+        .scratch-item label {
+            cursor: pointer;
+            user-select: none;
+            flex: 1;
+            font-weight: 500;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 30px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 15px 40px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(30, 60, 114, 0.4);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+        }
+
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(40, 167, 69, 0.4);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(220, 53, 69, 0.4);
+        }
+
+        .btn-info {
+            background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
+            color: white;
+        }
+
+        .btn-info:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(23, 162, 184, 0.4);
+        }
+
+        .btn-sm {
+            padding: 10px 20px;
+            font-size: 0.95em;
+        }
+
+        .stats-section {
+            padding: 30px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            background: #f8f9fa;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+            transition: transform 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .stat-card h3 {
+            font-size: 0.85em;
+            opacity: 0.9;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+        }
+
+        .stat-card .value {
+            font-size: 2.5em;
+            font-weight: bold;
+        }
+
+        .stat-card.red {
+            background: linear-gradient(135deg, #ff0000 0%, #dc143c 100%);
+        }
+
+        .stat-card.success {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+
+        .charts-section {
+            padding: 30px;
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 30px;
+        }
+
+        .chart-container {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+        }
+
+        .chart-container h2 {
+            color: #1e3c72;
+            margin-bottom: 20px;
+            font-size: 1.4em;
+            border-bottom: 3px solid #2a5298;
+            padding-bottom: 10px;
+        }
+
+        .chart-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            gap: 30px;
+        }
+
+        .table-container {
+            padding: 30px;
+            overflow-x: auto;
+        }
+
+        .table-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+            font-size: 0.85em;
+        }
+
+        th {
+            background: #2a5298;
+            color: white;
+            padding: 12px 8px;
+            text-align: center;
+            font-weight: 600;
+            font-size: 0.8em;
+            min-width: 80px;
+        }
+
+        th.red-header {
+            background: #ff0000 !important;
+        }
+
+        td {
+            padding: 10px 8px;
+            border-bottom: 1px solid #e9ecef;
+            text-align: center;
+            font-size: 0.9em;
+        }
+
+        tr:hover {
+            background: #f8f9fa;
+        }
+
+        .alert {
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-weight: 500;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 2px solid #c3e6cb;
+        }
+
+        .filter-section {
+            padding: 20px 30px;
+            background: #f8f9fa;
+            border-bottom: 2px solid #e9ecef;
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .filter-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .filter-group label {
+            font-weight: 600;
+            color: #495057;
+        }
+
+        .filter-group input, .filter-group select {
+            padding: 8px 12px;
+            border: 2px solid #dee2e6;
+            border-radius: 6px;
+            font-size: 0.95em;
+        }
+
+        .pivot-nsk {
+            background: #e3f2fd;
+            color: #1976d2;
+            font-weight: 600;
+            padding: 5px 10px;
+            border-radius: 4px;
+        }
+
+        .pivot-nmb {
+            background: #fff3e0;
+            color: #f57c00;
+            font-weight: 600;
+            padding: 5px 10px;
+            border-radius: 4px;
+        }
+
+        .no-export {
+            background: #6c757d !important;
+        }
+
+        @media print {
+            .no-export {
+                display: none !important;
+            }
+            
+            button {
+                display: none !important;
+            }
+            
+            .filter-section {
+                display: none !important;
+            }
+
+            .tab-container {
+                display: none !important;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .form-grid, .scratch-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .chart-row {
+                grid-template-columns: 1fr;
+            }
+
+            .filter-section {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .filter-group {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .table-header {
+                flex-direction: column;
+            }
+
+            .button-group {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 Pin Pivot Scratch Monitoring</h1>
+            <p>PCM/PDQ MBA 2nd Inspection - Data Entry & Analysis System</p>
+            <p style="font-size: 0.9em; margin-top: 5px;">Data Retention: 1 Year</p>
+        </div>
+
+        <div class="tab-container">
+            <div class="tab active" onclick="switchTab('input')">📝 Input Data</div>
+            <div class="tab" onclick="switchTab('view')">📊 View Charts</div>
+            <div class="tab" onclick="switchTab('table')">📋 Data Table</div>
+        </div>
+
+        <!-- INPUT TAB -->
+        <div id="input" class="content active">
+            <div class="input-section">
+                <div id="successAlert" class="alert alert-success" style="display: none;">
+                    ✅ บันทึกข้อมูลสำเร็จ!
+                </div>
+
+                <form id="inspectionForm">
+                    <h2 style="color: #1e3c72; margin-bottom: 20px;">📋 Basic Information</h2>
+                    
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Sample No. *</label>
+                            <input type="text" name="sampleNo" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Week *</label>
+                            <input type="text" name="week" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Date *</label>
+                            <input type="date" name="date" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Time *</label>
+                            <input type="time" name="time" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Monitor/Buyoff/OCAP</label>
+                            <select name="monitorType">
+                                <option value="Monitor">Monitor</option>
+                                <option value="Buyoff">Buyoff</option>
+                                <option value="OCAP">OCAP</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>HDD SN</label>
+                            <input type="text" name="hddSN">
+                        </div>
+                        <div class="form-group">
+                            <label>HSA SN</label>
+                            <input type="text" name="hsaSN">
+                        </div>
+                        <div class="form-group">
+                            <label>SDL RW ASM cycle</label>
+                            <input type="text" name="asmCycle">
+                        </div>
+                        <div class="form-group">
+                            <label>MC</label>
+                            <input type="text" name="mc">
+                        </div>
+                        <div class="form-group">
+                            <label>Fixture</label>
+                            <input type="text" name="fixture">
+                        </div>
+                        <div class="form-group">
+                            <label>Index</label>
+                            <input type="text" name="index">
+                        </div>
+                        <div class="form-group">
+                            <label>Line</label>
+                            <input type="text" name="line">
+                        </div>
+                        <div class="form-group">
+                            <label>Product *</label>
+                            <input type="text" name="product" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Pivot (K/J/S/D/L NSK / M/B/N/P NMB) *</label>
+                            <select name="pivot" required>
+                                <option value="">Select Pivot Type</option>
+                                <optgroup label="NSK">
+                                    <option value="K">K (NSK)</option>
+                                    <option value="J">J (NSK)</option>
+                                    <option value="S">S (NSK)</option>
+                                    <option value="D">D (NSK)</option>
+                                    <option value="L">L (NSK)</option>
+                                </optgroup>
+                                <optgroup label="NMB">
+                                    <option value="M">M (NMB)</option>
+                                    <option value="B">B (NMB)</option>
+                                    <option value="N">N (NMB)</option>
+                                    <option value="P">P (NMB)</option>
+                                </optgroup>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="scratch-section">
+                        <h3>🔍 Pin Pivot Scratch Inspection Results</h3>
+                        <p style="margin-bottom: 15px; color: #666; font-size: 0.95em;">
+                            ✅ เลือก checkbox แล้วใส่จำนวนที่ตรวจพบ (ถ้าไม่พบให้ใส่ 0 หรือเว้นว่าง)
+                        </p>
+                        <div class="scratch-grid">
+                            <div class="scratch-item">
+                                <input type="checkbox" id="noScratch" onchange="toggleNumber('noScratch')">
+                                <label for="noScratch">No scratch</label>
+                                <input type="number" id="noScratchValue" name="noScratchValue" min="0" value="0" disabled>
+                            </div>
+                            
+                            <div class="scratch-item red">
+                                <input type="checkbox" id="scratchProtrusion" onchange="toggleNumber('scratchProtrusion')">
+                                <label for="scratchProtrusion">Scratch w/protrusion</label>
+                                <input type="number" id="scratchProtrusionValue" name="scratchProtrusionValue" min="0" value="0" disabled>
+                            </div>
+                            
+                            <div class="scratch-item">
+                                <input type="checkbox" id="hardlyLong" onchange="toggleNumber('hardlyLong')">
+                                <label for="hardlyLong">Hardly long scratch</label>
+                                <input type="number" id="hardlyLongValue" name="hardlyLongValue" min="0" value="0" disabled>
+                            </div>
+                            
+                            <div class="scratch-item">
+                                <input type="checkbox" id="slightlyLong" onchange="toggleNumber('slightlyLong')">
+                                <label for="slightlyLong">Slightly long scratch</label>
+                                <input type="number" id="slightlyLongValue" name="slightlyLongValue" min="0" value="0" disabled>
+                            </div>
+                            
+                            <div class="scratch-item">
+                                <input type="checkbox" id="hardlyShort" onchange="toggleNumber('hardlyShort')">
+                                <label for="hardlyShort">Hardly short scratch</label>
+                                <input type="number" id="hardlyShortValue" name="hardlyShortValue" min="0" value="0" disabled>
+                            </div>
+                            
+                            <div class="scratch-item">
+                                <input type="checkbox" id="slightlyShort" onchange="toggleNumber('slightlyShort')">
+                                <label for="slightlyShort">Slightly short scratch</label>
+                                <input type="number" id="slightlyShortValue" name="slightlyShortValue" min="0" value="0" disabled>
+                            </div>
+                            
+                            <div class="scratch-item">
+                                <input type="checkbox" id="hardlyWideTop" onchange="toggleNumber('hardlyWideTop')">
+                                <label for="hardlyWideTop">Hardly wide scratch at top pin area</label>
+                                <input type="number" id="hardlyWideTopValue" name="hardlyWideTopValue" min="0" value="0" disabled>
+                            </div>
+                            
+                            <div class="scratch-item">
+                                <input type="checkbox" id="slightlyWideTop" onchange="toggleNumber('slightlyWideTop')">
+                                <label for="slightlyWideTop">Slightly wide scratch at top pin area</label>
+                                <input type="number" id="slightlyWideTopValue" name="slightlyWideTopValue" min="0" value="0" disabled>
+                            </div>
+                            
+                            <div class="scratch-item">
+                                <input type="checkbox" id="hardlyWideBottom" onchange="toggleNumber('hardlyWideBottom')">
+                                <label for="hardlyWideBottom">Hardly wide scratch at bottom pin area</label>
+                                <input type="number" id="hardlyWideBottomValue" name="hardlyWideBottomValue" min="0" value="0" disabled>
+                            </div>
+                            
+                            <div class="scratch-item">
+                                <input type="checkbox" id="slightlyWideBottom" onchange="toggleNumber('slightlyWideBottom')">
+                                <label for="slightlyWideBottom">Slightly wide scratch at bottom pin area</label>
+                                <input type="number" id="slightlyWideBottomValue" name="slightlyWideBottomValue" min="0" value="0" disabled>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group" style="grid-column: 1 / -1;">
+                        <label>Remark (หมายเหตุ)</label>
+                        <textarea name="remark" rows="3"></textarea>
+                    </div>
+
+                    <div class="button-group">
+                        <button type="submit" class="btn-primary">💾 Save Data</button>
+                        <button type="button" class="btn-success" onclick="switchTab('view')">📊 View Charts</button>
+                        <button type="reset" class="btn-danger" onclick="resetForm()">🔄 Reset Form</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- VIEW TAB -->
+        <div id="view" class="content">
+            <div class="filter-section">
+                <div class="filter-group">
+                    <label>📅 Date Range:</label>
+                    <input type="date" id="startDate" onchange="updateAllCharts()">
+                    <span>to</span>
+                    <input type="date" id="endDate" onchange="updateAllCharts()">
+                </div>
+                <div class="filter-group">
+                    <label>🏭 Product:</label>
+                    <select id="productFilter" onchange="updateAllCharts()">
+                        <option value="all">All</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>🔩 Pivot:</label>
+                    <select id="pivotFilter" onchange="updateAllCharts()">
+                        <option value="all">All</option>
+                        <optgroup label="NSK">
+                            <option value="K">K (NSK)</option>
+                            <option value="J">J (NSK)</option>
+                            <option value="S">S (NSK)</option>
+                            <option value="D">D (NSK)</option>
+                            <option value="L">L (NSK)</option>
+                        </optgroup>
+                        <optgroup label="NMB">
+                            <option value="M">M (NMB)</option>
+                            <option value="B">B (NMB)</option>
+                            <option value="N">N (NMB)</option>
+                            <option value="P">P (NMB)</option>
+                        </optgroup>
+                    </select>
+                </div>
+            </div>
+
+            <div class="stats-section" id="statsSection"></div>
+
+            <div class="charts-section">
+                <div class="chart-container">
+                    <h2>📈 Scratch Type Distribution (Count)</h2>
+                    <canvas id="scratchCountChart"></canvas>
+                </div>
+
+                <div class="chart-row">
+                    <div class="chart-container">
+                        <h2>📊 Scratch Type Percentage</h2>
+                        <canvas id="scratchPercentChart"></canvas>
+                    </div>
+
+                    <div class="chart-container">
+                        <h2>🔩 Pivot Type Comparison (NSK vs NMB)</h2>
+                        <canvas id="pivotChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="chart-container">
+                    <h2>🔍 Detailed Pivot Analysis (K/J/S/D/L vs M/B/N/P)</h2>
+                    <canvas id="detailedPivotChart"></canvas>
+                </div>
+
+                <div class="chart-container">
+                    <h2>📅 Trend Over Time</h2>
+                    <canvas id="trendChart"></canvas>
+                </div>
+
+                <div class="chart-container">
+                    <h2>📊 Detailed Scratch Analysis (Hardly vs Slightly)</h2>
+                    <canvas id="detailedChart"></canvas>
+                </div>
+            </div>
+
+            <div style="padding: 30px; text-align: center;">
+                <button class="btn-success" onclick="exportToExcel()">📥 Export All Data to Excel</button>
+                <button class="btn-info" onclick="cleanOldData()">🗑️ Clean Data Older Than 1 Year</button>
+            </div>
+        </div>
+
+        <!-- TABLE TAB -->
+        <div id="table" class="content">
+            <div class="filter-section">
+                <div class="filter-group">
+                    <label>📅 Date Range:</label>
+                    <input type="date" id="tableStartDate" onchange="updateTable()">
+                    <span>to</span>
+                    <input type="date" id="tableEndDate" onchange="updateTable()">
+                </div>
+                <button class="btn-info btn-sm" onclick="showAllData()">Show All Data</button>
+            </div>
+
+            <div class="table-container">
+                <div class="table-header">
+                    <div>
+                        <h2 style="color: #1e3c72; margin: 0;">📋 Pin Pivot Scratch Inspection Records</h2>
+                        <p style="margin-top: 10px; color: #666;">Total Records: <strong id="totalRecords">0</strong></p>
+                    </div>
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        <button class="btn-success btn-sm" onclick="exportTableToExcel()">
+                            📥 Export to Excel
+                        </button>
+                        <button class="btn-info btn-sm" onclick="exportTableToCSV()">
+                            📄 Export to CSV
+                        </button>
+                        <button class="btn-primary btn-sm" onclick="printTable()">
+                            🖨️ Print Table
+                        </button>
+                    </div>
+                </div>
+                
+                <table id="mainTable">
+                    <thead>
+                        <tr>
+                            <th>Sample No.</th>
+                            <th>Week</th>
+                            <th>Date</th>
+                            <th>Time</th>
+                            <th>Monitor/Buyoff/OCAP</th>
+                            <th>HDD SN</th>
+                            <th>HSA SN</th>
+                            <th>SDL RW ASM cycle</th>
+                            <th>MC</th>
+                            <th>Fixture</th>
+                            <th>Index</th>
+                            <th>Line</th>
+                            <th>Product</th>
+                            <th>Pivot</th>
+                            <th>No scratch</th>
+                            <th class="red-header">Scratch w/protrusion</th>
+                            <th>Hardly long</th>
+                            <th>Slightly long</th>
+                            <th>Hardly short</th>
+                            <th>Slightly short</th>
+                            <th>Hardly wide (top)</th>
+                            <th>Slightly wide (top)</th>
+                            <th>Hardly wide (bottom)</th>
+                            <th>Slightly wide (bottom)</th>
+                            <th>Remark</th>
+                            <th class="no-export">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let dataStore = JSON.parse(localStorage.getItem('scratchData')) || [];
+        let charts = {};
+
+        // Get pivot type
+        function getPivotType(pivotValue) {
+            const nsk = ['K', 'J', 'S', 'D', 'L'];
+            const nmb = ['M', 'B', 'N', 'P'];
+            
+            if (nsk.includes(pivotValue)) return 'NSK';
+            if (nmb.includes(pivotValue)) return 'NMB';
+            return 'Unknown';
+        }
+
+        // Toggle number input based on checkbox
+        function toggleNumber(id) {
+            const checkbox = document.getElementById(id);
+            const input = document.getElementById(id + 'Value');
+            input.disabled = !checkbox.checked;
+            if (checkbox.checked) {
+                input.focus();
+            } else {
+                input.value = 0;
+            }
+        }
+
+        // Form submission
+        document.getElementById('inspectionForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(e.target);
+            const data = {
+                id: Date.now(),
+                sampleNo: formData.get('sampleNo'),
+                week: formData.get('week'),
+                date: formData.get('date'),
+                time: formData.get('time'),
+                monitorType: formData.get('monitorType'),
+                hddSN: formData.get('hddSN'),
+                hsaSN: formData.get('hsaSN'),
+                asmCycle: formData.get('asmCycle'),
+                mc: formData.get('mc'),
+                fixture: formData.get('fixture'),
+                index: formData.get('index'),
+                line: formData.get('line'),
+                product: formData.get('product'),
+                pivot: formData.get('pivot'),
+                noScratch: parseInt(formData.get('noScratchValue')) || 0,
+                scratchProtrusion: parseInt(formData.get('scratchProtrusionValue')) || 0,
+                hardlyLong: parseInt(formData.get('hardlyLongValue')) || 0,
+                slightlyLong: parseInt(formData.get('slightlyLongValue')) || 0,
+                hardlyShort: parseInt(formData.get('hardlyShortValue')) || 0,
+                slightlyShort: parseInt(formData.get('slightlyShortValue')) || 0,
+                hardlyWideTop: parseInt(formData.get('hardlyWideTopValue')) || 0,
+                slightlyWideTop: parseInt(formData.get('slightlyWideTopValue')) || 0,
+                hardlyWideBottom: parseInt(formData.get('hardlyWideBottomValue')) || 0,
+                slightlyWideBottom: parseInt(formData.get('slightlyWideBottomValue')) || 0,
+                remark: formData.get('remark'),
+                createdAt: new Date().toISOString()
+            };
+
+            dataStore.push(data);
+            localStorage.setItem('scratchData', JSON.stringify(dataStore));
+
+            document.getElementById('successAlert').style.display = 'block';
+            setTimeout(() => {
+                document.getElementById('successAlert').style.display = 'none';
+            }, 3000);
+
+            e.target.reset();
+            resetForm();
+
+            updateAllCharts();
+            updateTable();
+            populateFilters();
+        });
+
+        function resetForm() {
+            const checkboxes = ['noScratch', 'scratchProtrusion', 'hardlyLong', 'slightlyLong', 'hardlyShort', 'slightlyShort', 'hardlyWideTop', 'slightlyWideTop', 'hardlyWideBottom', 'slightlyWideBottom'];
+            checkboxes.forEach(id => {
+                document.getElementById(id).checked = false;
+                document.getElementById(id + 'Value').disabled = true;
+                document.getElementById(id + 'Value').value = 0;
+            });
+        }
+
+        function switchTab(tabName) {
+            document.querySelectorAll('.content').forEach(c => c.classList.remove('active'));
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+
+            document.getElementById(tabName).classList.add('active');
+            event.target.classList.add('active');
+
+            if (tabName === 'view') {
+                updateAllCharts();
+            } else if (tabName === 'table') {
+                updateTable();
+            }
+        }
+
+        function populateFilters() {
+            const products = [...new Set(dataStore.map(d => d.product).filter(p => p))];
+            const productFilter = document.getElementById('productFilter');
+            productFilter.innerHTML = '<option value="all">All</option>';
+            products.forEach(p => {
+                productFilter.innerHTML += `<option value="${p}">${p}</option>`;
+            });
+        }
+
+        function getFilteredData() {
+            const startDate = document.getElementById('startDate')?.value;
+            const endDate = document.getElementById('endDate')?.value;
+            const product = document.getElementById('productFilter')?.value;
+            const pivot = document.getElementById('pivotFilter')?.value;
+
+            return dataStore.filter(d => {
+                if (startDate && d.date < startDate) return false;
+                if (endDate && d.date > endDate) return false;
+                if (product !== 'all' && d.product !== product) return false;
+                if (pivot !== 'all' && d.pivot !== pivot) return false;
+                return true;
+            });
+        }
+
+        function updateAllCharts() {
+            const data = getFilteredData();
+
+            if (data.length === 0) {
+                document.getElementById('statsSection').innerHTML = '<p style="text-align: center; padding: 40px; color: #666; grid-column: 1/-1;">ยังไม่มีข้อมูล กรุณาเพิ่มข้อมูลก่อน</p>';
+                return;
+            }
+
+            updateStats(data);
+            updateScratchCountChart(data);
+            updateScratchPercentChart(data);
+            updatePivotChart(data);
+            updateDetailedPivotChart(data);
+            updateTrendChart(data);
+            updateDetailedChart(data);
+        }
+
+        function updateStats(data) {
+            const total = data.length;
+            const noScratch = data.reduce((sum, d) => sum + d.noScratch, 0);
+            const scratchProtrusion = data.reduce((sum, d) => sum + d.scratchProtrusion, 0);
+            const longScratches = data.reduce((sum, d) => sum + d.hardlyLong + d.slightlyLong, 0);
+            const shortScratches = data.reduce((sum, d) => sum + d.hardlyShort + d.slightlyShort, 0);
+            const wideScratches = data.reduce((sum, d) => sum + d.hardlyWideTop + d.slightlyWideTop + d.hardlyWideBottom + d.slightlyWideBottom, 0);
+            const totalDefects = scratchProtrusion + longScratches + shortScratches + wideScratches;
+
+            document.getElementById('statsSection').innerHTML = `
+                <div class="stat-card">
+                    <h3>Total Samples</h3>
+                    <div class="value">${total}</div>
+                </div>
+                <div class="stat-card success">
+                    <h3>No Scratch</h3>
+                    <div class="value">${noScratch}</div>
+                </div>
+                <div class="stat-card red">
+                    <h3>Total Defects</h3>
+                    <div class="value">${totalDefects}</div>
+                </div>
+                <div class="stat-card red">
+                    <h3>Scratch w/ Protrusion</h3>
+                    <div class="value">${scratchProtrusion}</div>
+                </div>
+                <div class="stat-card" style="background: linear-gradient(135deg, #30cfd0 0%, #330867 100%);">
+                    <h3>Long Scratches</h3>
+                    <div class="value">${longScratches}</div>
+                </div>
+                <div class="stat-card" style="background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);">
+                    <h3>Short Scratches</h3>
+                    <div class="value">${shortScratches}</div>
+                </div>
+                <div class="stat-card" style="background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%);">
+                    <h3>Wide Scratches</h3>
+                    <div class="value">${wideScratches}</div>
+                </div>
+            `;
+        }
+
+        function updateScratchCountChart(data) {
+            const ctx = document.getElementById('scratchCountChart').getContext('2d');
+            
+            const counts = {
+                'No scratch': data.reduce((sum, d) => sum + d.noScratch, 0),
+                'Scratch w/ Protrusion': data.reduce((sum, d) => sum + d.scratchProtrusion, 0),
+                'Hardly long': data.reduce((sum, d) => sum + d.hardlyLong, 0),
+                'Slightly long': data.reduce((sum, d) => sum + d.slightlyLong, 0),
+                'Hardly short': data.reduce((sum, d) => sum + d.hardlyShort, 0),
+                'Slightly short': data.reduce((sum, d) => sum + d.slightlyShort, 0),
+                'Hardly wide (top)': data.reduce((sum, d) => sum + d.hardlyWideTop, 0),
+                'Slightly wide (top)': data.reduce((sum, d) => sum + d.slightlyWideTop, 0),
+                'Hardly wide (bottom)': data.reduce((sum, d) => sum + d.hardlyWideBottom, 0),
+                'Slightly wide (bottom)': data.reduce((sum, d) => sum + d.slightlyWideBottom, 0)
+            };
+
+            if (charts.scratchCount) charts.scratchCount.destroy();
+
+            charts.scratchCount = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(counts),
+                    datasets: [{
+                        label: 'Count',
+                        data: Object.values(counts),
+                        backgroundColor: [
+                            '#28a745', '#dc3545', '#ff6384', '#ff9f40',
+                            '#ffcd56', '#4bc0c0', '#36a2eb', '#9966ff',
+                            '#c9cbcf', '#ff6384'
+                        ],
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    indexAxis: 'y',
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            title: { display: true, text: 'Count' }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateScratchPercentChart(data) {
+            const ctx = document.getElementById('scratchPercentChart').getContext('2d');
+            
+            const chartData = {
+                'Scratch w/ Protrusion': data.reduce((sum, d) => sum + d.scratchProtrusion, 0),
+                'Long Scratches': data.reduce((sum, d) => sum + d.hardlyLong + d.slightlyLong, 0),
+                'Short Scratches': data.reduce((sum, d) => sum + d.hardlyShort + d.slightlyShort, 0),
+                'Wide (Top)': data.reduce((sum, d) => sum + d.hardlyWideTop + d.slightlyWideTop, 0),
+                'Wide (Bottom)': data.reduce((sum, d) => sum + d.hardlyWideBottom + d.slightlyWideBottom, 0)
+            };
+
+            if (charts.scratchPercent) charts.scratchPercent.destroy();
+
+            charts.scratchPercent = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(chartData),
+                    datasets: [{
+                        data: Object.values(chartData),
+                        backgroundColor: ['#dc3545', '#2a5298', '#ffc107', '#28a745', '#17a2b8'],
+                        borderWidth: 3,
+                        borderColor: '#fff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { 
+                        legend: { position: 'bottom' },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label || '';
+                                    const value = context.parsed || 0;
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                                    return `${label}: ${value} (${percentage}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updatePivotChart(data) {
+            const ctx = document.getElementById('pivotChart').getContext('2d');
+            
+            const pivotStats = {
+                'NSK': { total: 0, defects: 0 },
+                'NMB': { total: 0, defects: 0 }
+            };
+
+            data.forEach(d => {
+                const type = getPivotType(d.pivot);
+                if (pivotStats[type]) {
+                    pivotStats[type].total++;
+                    pivotStats[type].defects += d.scratchProtrusion + d.hardlyLong + d.slightlyLong + 
+                                                d.hardlyShort + d.slightlyShort + d.hardlyWideTop + 
+                                                d.slightlyWideTop + d.hardlyWideBottom + d.slightlyWideBottom;
+                }
+            });
+
+            if (charts.pivot) charts.pivot.destroy();
+
+            charts.pivot = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['NSK (K/J/S/D/L)', 'NMB (M/B/N/P)'],
+                    datasets: [
+                        {
+                            label: 'Total Defects',
+                            data: [pivotStats.NSK.defects, pivotStats.NMB.defects],
+                            backgroundColor: '#dc3545',
+                            borderRadius: 8
+                        },
+                        {
+                            label: 'Total Samples',
+                            data: [pivotStats.NSK.total, pivotStats.NMB.total],
+                            backgroundColor: '#2a5298',
+                            borderRadius: 8
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { position: 'top' } },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: { display: true, text: 'Count' }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateDetailedPivotChart(data) {
+            const ctx = document.getElementById('detailedPivotChart').getContext('2d');
+            
+            const pivotStats = {};
+            ['K', 'J', 'S', 'D', 'L', 'M', 'B', 'N', 'P'].forEach(p => {
+                pivotStats[p] = 0;
+            });
+
+            data.forEach(d => {
+                if (pivotStats[d.pivot] !== undefined) {
+                    pivotStats[d.pivot] += d.scratchProtrusion + d.hardlyLong + d.slightlyLong + 
+                                            d.hardlyShort + d.slightlyShort + d.hardlyWideTop + 
+                                            d.slightlyWideTop + d.hardlyWideBottom + d.slightlyWideBottom;
+                }
+            });
+
+            if (charts.detailedPivot) charts.detailedPivot.destroy();
+
+            charts.detailedPivot = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(pivotStats),
+                    datasets: [{
+                        label: 'Total Defects by Pivot Type',
+                        data: Object.values(pivotStats),
+                        backgroundColor: [
+                            '#667eea', '#764ba2', '#f093fb', '#4facfe', '#43e97b',
+                            '#fa709a', '#fee140', '#30cfd0', '#a8edea'
+                        ],
+                        borderRadius: 10
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { 
+                        legend: { display: false },
+                        title: {
+                            display: true,
+                            text: 'NSK (K/J/S/D/L) vs NMB (M/B/N/P) Detail'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: { display: true, text: 'Defect Count' }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateTrendChart(data) {
+            const ctx = document.getElementById('trendChart').getContext('2d');
+            
+            const grouped = {};
+            data.forEach(d => {
+                if (!grouped[d.date]) {
+                    grouped[d.date] = {
+                        noScratch: 0,
+                        scratchProtrusion: 0,
+                        longScratches: 0,
+                        shortScratches: 0,
+                        wideScratches: 0
+                    };
+                }
+                grouped[d.date].noScratch += d.noScratch;
+                grouped[d.date].scratchProtrusion += d.scratchProtrusion;
+                grouped[d.date].longScratches += d.hardlyLong + d.slightlyLong;
+                grouped[d.date].shortScratches += d.hardlyShort + d.slightlyShort;
+                grouped[d.date].wideScratches += d.hardlyWideTop + d.slightlyWideTop + d.hardlyWideBottom + d.slightlyWideBottom;
+            });
+
+            const labels = Object.keys(grouped).sort();
+
+            if (charts.trend) charts.trend.destroy();
+
+            charts.trend = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'No Scratch',
+                            data: labels.map(l => grouped[l].noScratch),
+                            borderColor: '#28a745',
+                            backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                            tension: 0.4,
+                            fill: true
+                        },
+                        {
+                            label: 'Scratch w/ Protrusion',
+                            data: labels.map(l => grouped[l].scratchProtrusion),
+                            borderColor: '#dc3545',
+                            backgroundColor: 'rgba(220, 53, 69, 0.1)',
+                            tension: 0.4,
+                            fill: true
+                        },
+                        {
+                            label: 'Long Scratches',
+                            data: labels.map(l => grouped[l].longScratches),
+                            borderColor: '#2a5298',
+                            backgroundColor: 'rgba(42, 82, 152, 0.1)',
+                            tension: 0.4,
+                            fill: true
+                        },
+                        {
+                            label: 'Short Scratches',
+                            data: labels.map(l => grouped[l].shortScratches),
+                            borderColor: '#ffc107',
+                            backgroundColor: 'rgba(255, 193, 7, 0.1)',
+                            tension: 0.4,
+                            fill: true
+                        },
+                        {
+                            label: 'Wide Scratches',
+                            data: labels.map(l => grouped[l].wideScratches),
+                            borderColor: '#17a2b8',
+                            backgroundColor: 'rgba(23, 162, 184, 0.1)',
+                            tension: 0.4,
+                            fill: true
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { position: 'top' } },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: { display: true, text: 'Count' }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateDetailedChart(data) {
+            const ctx = document.getElementById('detailedChart').getContext('2d');
+            
+            const categories = [
+                { name: 'Long Scratch', hardly: data.reduce((s, d) => s + d.hardlyLong, 0), slightly: data.reduce((s, d) => s + d.slightlyLong, 0) },
+                { name: 'Short Scratch', hardly: data.reduce((s, d) => s + d.hardlyShort, 0), slightly: data.reduce((s, d) => s + d.slightlyShort, 0) },
+                { name: 'Wide (Top)', hardly: data.reduce((s, d) => s + d.hardlyWideTop, 0), slightly: data.reduce((s, d) => s + d.slightlyWideTop, 0) },
+                { name: 'Wide (Bottom)', hardly: data.reduce((s, d) => s + d.hardlyWideBottom, 0), slightly: data.reduce((s, d) => s + d.slightlyWideBottom, 0) }
+            ];
+
+            if (charts.detailed) charts.detailed.destroy();
+
+            charts.detailed = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: categories.map(c => c.name),
+                    datasets: [
+                        {
+                            label: 'Hardly',
+                            data: categories.map(c => c.hardly),
+                            backgroundColor: '#dc3545',
+                            borderRadius: 8
+                        },
+                        {
+                            label: 'Slightly',
+                            data: categories.map(c => c.slightly),
+                            backgroundColor: '#ff9f40',
+                            borderRadius: 8
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { position: 'top' } },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: { display: true, text: 'Count' }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateTable() {
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = '';
+
+            let displayData = dataStore;
+
+            const startDate = document.getElementById('tableStartDate')?.value;
+            const endDate = document.getElementById('tableEndDate')?.value;
+
+            if (startDate || endDate) {
+                displayData = dataStore.filter(d => {
+                    if (startDate && d.date < startDate) return false;
+                    if (endDate && d.date > endDate) return false;
+                    return true;
+                });
+            }
+
+            document.getElementById('totalRecords').textContent = displayData.length;
+
+            if (displayData.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="26" style="text-align: center; padding: 40px; color: #666;">ไม่พบข้อมูล</td></tr>';
+                return;
+            }
+
+            displayData.sort((a, b) => new Date(b.date) - new Date(a.date)).forEach(d => {
+                const pivotType = getPivotType(d.pivot);
+                const pivotClass = pivotType === 'NSK' ? 'pivot-nsk' : (pivotType === 'NMB' ? 'pivot-nmb' : '');
+                
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${d.sampleNo || ''}</td>
+                    <td>${d.week || ''}</td>
+                    <td>${d.date || ''}</td>
+                    <td>${d.time || ''}</td>
+                    <td>${d.monitorType || ''}</td>
+                    <td>${d.hddSN || ''}</td>
+                    <td>${d.hsaSN || ''}</td>
+                    <td>${d.asmCycle || ''}</td>
+                    <td>${d.mc || ''}</td>
+                    <td>${d.fixture || ''}</td>
+                    <td>${d.index || ''}</td>
+                    <td>${d.line || ''}</td>
+                    <td>${d.product || ''}</td>
+                    <td><span class="${pivotClass}">${d.pivot || ''} (${pivotType})</span></td>
+                    <td style="background: ${d.noScratch > 0 ? '#e6ffe6' : ''}; font-weight: ${d.noScratch > 0 ? 'bold' : 'normal'}">${d.noScratch || ''}</td>
+                    <td style="background: ${d.scratchProtrusion > 0 ? '#ffe6e6' : ''}; color: ${d.scratchProtrusion > 0 ? '#dc3545' : ''}; font-weight: ${d.scratchProtrusion > 0 ? 'bold' : 'normal'}">${d.scratchProtrusion || ''}</td>
+                    <td style="background: ${d.hardlyLong > 0 ? '#fff3cd' : ''}; font-weight: ${d.hardlyLong > 0 ? 'bold' : 'normal'}">${d.hardlyLong || ''}</td>
+                    <td style="background: ${d.slightlyLong > 0 ? '#fff3cd' : ''}; font-weight: ${d.slightlyLong > 0 ? 'bold' : 'normal'}">${d.slightlyLong || ''}</td>
+                    <td style="background: ${d.hardlyShort > 0 ? '#d1ecf1' : ''}; font-weight: ${d.hardlyShort > 0 ? 'bold' : 'normal'}">${d.hardlyShort || ''}</td>
+                    <td style="background: ${d.slightlyShort > 0 ? '#d1ecf1' : ''}; font-weight: ${d.slightlyShort > 0 ? 'bold' : 'normal'}">${d.slightlyShort || ''}</td>
+                    <td style="background: ${d.hardlyWideTop > 0 ? '#f8d7da' : ''}; font-weight: ${d.hardlyWideTop > 0 ? 'bold' : 'normal'}">${d.hardlyWideTop || ''}</td>
+                    <td style="background: ${d.slightlyWideTop > 0 ? '#f8d7da' : ''}; font-weight: ${d.slightlyWideTop > 0 ? 'bold' : 'normal'}">${d.slightlyWideTop || ''}</td>
+                    <td style="background: ${d.hardlyWideBottom > 0 ? '#e2e3e5' : ''}; font-weight: ${d.hardlyWideBottom > 0 ? 'bold' : 'normal'}">${d.hardlyWideBottom || ''}</td>
+                    <td style="background: ${d.slightlyWideBottom > 0 ? '#e2e3e5' : ''}; font-weight: ${d.slightlyWideBottom > 0 ? 'bold' : 'normal'}">${d.slightlyWideBottom || ''}</td>
+                    <td>${d.remark || ''}</td>
+                    <td class="no-export">
+                        <button onclick="deleteRecord(${d.id})" style="background: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 0.85em;">
+                            🗑️ Delete
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function showAllData() {
+            document.getElementById('tableStartDate').value = '';
+            document.getElementById('tableEndDate').value = '';
+            updateTable();
+        }
+
+        function deleteRecord(id) {
+            if (confirm('ต้องการลบข้อมูลนี้หรือไม่?')) {
+                dataStore = dataStore.filter(d => d.id !== id);
+                localStorage.setItem('scratchData', JSON.stringify(dataStore));
+                updateTable();
+                updateAllCharts();
+                populateFilters();
+            }
+        }
+
+        function cleanOldData() {
+            const oneYearAgo = new Date();
+            oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+            
+            const oldCount = dataStore.length;
+            dataStore = dataStore.filter(d => {
+                const createdDate = d.createdAt ? new Date(d.createdAt) : new Date(d.date);
+                return createdDate >= oneYearAgo;
+            });
+            const newCount = dataStore.length;
+            const deletedCount = oldCount - newCount;
+            
+            localStorage.setItem('scratchData', JSON.stringify(dataStore));
+            
+            alert(`ลบข้อมูลที่เก่ากว่า 1 ปีเรียบร้อยแล้ว\nลบไป: ${deletedCount} รายการ\nเหลือ: ${newCount} รายการ`);
+            
+            updateTable();
+            updateAllCharts();
+        }
+
+        // Export All Data to Excel
+        function exportToExcel() {
+            if (dataStore.length === 0) {
+                alert('ไม่มีข้อมูลให้ Export');
+                return;
+            }
+
+            const exportData = dataStore.map(d => ({
+                'Sample No.': d.sampleNo,
+                'Week': d.week,
+                'Date': d.date,
+                'Time': d.time,
+                'Monitor/Buyoff/OCAP': d.monitorType,
+                'HDD SN': d.hddSN,
+                'HSA SN': d.hsaSN,
+                'SDL RW ASM cycle': d.asmCycle,
+                'MC': d.mc,
+                'Fixture': d.fixture,
+                'Index': d.index,
+                'Line': d.line,
+                'Product': d.product,
+                'Pivot': d.pivot,
+                'Pivot Type': getPivotType(d.pivot),
+                'No scratch': d.noScratch,
+                'Scratch w/protrusion': d.scratchProtrusion,
+                'Hardly long scratch': d.hardlyLong,
+                'Slightly long scratch': d.slightlyLong,
+                'Hardly short scratch': d.hardlyShort,
+                'Slightly short scratch': d.slightlyShort,
+                'Hardly wide scratch at top pin area': d.hardlyWideTop,
+                'Slightly wide scratch at top pin area': d.slightlyWideTop,
+                'Hardly wide scratch at bottom pin area': d.hardlyWideBottom,
+                'Slightly wide scratch at bottom pin area': d.slightlyWideBottom,
+                'Remark': d.remark
+            }));
+
+            const ws = XLSX.utils.json_to_sheet(exportData);
+            
+            const cols = [
+                {wch: 12}, {wch: 8}, {wch: 12}, {wch: 8}, {wch: 18}, {wch: 15}, {wch: 15},
+                {wch: 15}, {wch: 8}, {wch: 10}, {wch: 8}, {wch: 8}, {wch: 12},
+                {wch: 10}, {wch: 12}, {wch: 12}, {wch: 20}, {wch: 20}, {wch: 22},
+                {wch: 20}, {wch: 22}, {wch: 35}, {wch: 38}, {wch: 38}, {wch: 41}, {wch: 20}
+            ];
+            ws['!cols'] = cols;
+
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Pin Pivot Scratch Data");
+            XLSX.writeFile(wb, `Pin_Pivot_Scratch_Inspection_${new Date().toISOString().split('T')[0]}.xlsx`);
+            
+            alert(`✅ Export สำเร็จ!\nจำนวนรายการ: ${exportData.length} รายการ`);
+        }
+
+        // Export Table to Excel (filtered data)
+        function exportTableToExcel() {
+            const startDate = document.getElementById('tableStartDate')?.value;
+            const endDate = document.getElementById('tableEndDate')?.value;
+
+            let displayData = dataStore;
+            if (startDate || endDate) {
+                displayData = dataStore.filter(d => {
+                    if (startDate && d.date < startDate) return false;
+                    if (endDate && d.date > endDate) return false;
+                    return true;
+                });
+            }
+
+            if (displayData.length === 0) {
+                alert('ไม่มีข้อมูลให้ Export');
+                return;
+            }
+
+            const exportData = displayData.map(d => {
+                const pivotType = getPivotType(d.pivot);
+                return {
+                    'Sample No.': d.sampleNo,
+                    'Week': d.week,
+                    'Date': d.date,
+                    'Time': d.time,
+                    'Monitor/Buyoff/OCAP': d.monitorType,
+                    'HDD SN': d.hddSN,
+                    'HSA SN': d.hsaSN,
+                    'SDL RW ASM cycle': d.asmCycle,
+                    'MC': d.mc,
+                    'Fixture': d.fixture,
+                    'Index': d.index,
+                    'Line': d.line,
+                    'Product': d.product,
+                    'Pivot': d.pivot,
+                    'Pivot Type': pivotType,
+                    'No scratch': d.noScratch || '',
+                    'Scratch w/protrusion': d.scratchProtrusion || '',
+                    'Hardly long scratch': d.hardlyLong || '',
+                    'Slightly long scratch': d.slightlyLong || '',
+                    'Hardly short scratch': d.hardlyShort || '',
+                    'Slightly short scratch': d.slightlyShort || '',
+                    'Hardly wide scratch at top pin area': d.hardlyWideTop || '',
+                    'Slightly wide scratch at top pin area': d.slightlyWideTop || '',
+                    'Hardly wide scratch at bottom pin area': d.hardlyWideBottom || '',
+                    'Slightly wide scratch at bottom pin area': d.slightlyWideBottom || '',
+                    'Remark': d.remark || ''
+                };
+            });
+
+            const ws = XLSX.utils.json_to_sheet(exportData);
+            
+            const cols = [
+                {wch: 12}, {wch: 8}, {wch: 12}, {wch: 8}, {wch: 18}, {wch: 15}, {wch: 15},
+                {wch: 15}, {wch: 8}, {wch: 10}, {wch: 8}, {wch: 8}, {wch: 12},
+                {wch: 10}, {wch: 12}, {wch: 12}, {wch: 20}, {wch: 20}, {wch: 22},
+                {wch: 20}, {wch: 22}, {wch: 35}, {wch: 38}, {wch: 38}, {wch: 41}, {wch: 20}
+            ];
+            ws['!cols'] = cols;
+
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Inspection Data");
+            
+            let filename = 'Pin_Pivot_Scratch_Table';
+            if (startDate || endDate) {
+                filename += `_${startDate || 'start'}_to_${endDate || 'end'}`;
+            } else {
+                filename += `_${new Date().toISOString().split('T')[0]}`;
+            }
+            
+            XLSX.writeFile(wb, `${filename}.xlsx`);
+            
+            alert(`✅ Export สำเร็จ!\nจำนวนรายการ: ${exportData.length} รายการ`);
+        }
+
+        // Export Table to CSV
+        function exportTableToCSV() {
+            const startDate = document.getElementById('tableStartDate')?.value;
+            const endDate = document.getElementById('tableEndDate')?.value;
+
+            let displayData = dataStore;
+            if (startDate || endDate) {
+                displayData = dataStore.filter(d => {
+                    if (startDate && d.date < startDate) return false;
+                    if (endDate && d.date > endDate) return false;
+                    return true;
+                });
+            }
+
+            if (displayData.length === 0) {
+                alert('ไม่มีข้อมูลให้ Export');
+                return;
+            }
+
+            const headers = [
+                'Sample No.', 'Week', 'Date', 'Time', 'Monitor/Buyoff/OCAP',
+                'HDD SN', 'HSA SN', 'SDL RW ASM cycle', 'MC', 'Fixture', 'Index',
+                'Line', 'Product', 'Pivot', 'Pivot Type', 'No scratch',
+                'Scratch w/protrusion', 'Hardly long', 'Slightly long',
+                'Hardly short', 'Slightly short', 'Hardly wide (top)',
+                'Slightly wide (top)', 'Hardly wide (bottom)', 'Slightly wide (bottom)', 'Remark'
+            ];
+
+            let csv = headers.join(',') + '\n';
+
+            displayData.forEach(d => {
+                const pivotType = getPivotType(d.pivot);
+                const row = [
+                    d.sampleNo, d.week, d.date, d.time, d.monitorType,
+                    d.hddSN, d.hsaSN, d.asmCycle, d.mc, d.fixture, d.index,
+                    d.line, d.product, d.pivot, pivotType, d.noScratch || 0,
+                    d.scratchProtrusion || 0, d.hardlyLong || 0, d.slightlyLong || 0,
+                    d.hardlyShort || 0, d.slightlyShort || 0, d.hardlyWideTop || 0,
+                    d.slightlyWideTop || 0, d.hardlyWideBottom || 0, d.slightlyWideBottom || 0,
+                    `"${(d.remark || '').replace(/"/g, '""')}"`
+                ];
+                csv += row.join(',') + '\n';
+            });
+
+            const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            
+            link.setAttribute('href', url);
+            link.setAttribute('download', `Pin_Pivot_Scratch_${new Date().toISOString().split('T')[0]}.csv`);
+            link.style.visibility = 'hidden';
+            
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            alert(`✅ Export CSV สำเร็จ!\nจำนวนรายการ: ${displayData.length} รายการ`);
+        }
+
+        // Print Table
+        function printTable() {
+            const printWindow = window.open('', '', 'height=600,width=800');
+            const table = document.getElementById('mainTable').cloneNode(true);
+            
+            const headers = table.getElementsByTagName('th');
+            const rows = table.getElementsByTagName('tr');
+            
+            for (let i = 0; i < rows.length; i++) {
+                const cells = rows[i].getElementsByTagName('td');
+                if (cells.length > 0) {
+                    cells[cells.length - 1].remove();
+                }
+                const headerCells = rows[i].getElementsByTagName('th');
+                if (headerCells.length > 0) {
+                    headerCells[headerCells.length - 1].remove();
+                }
+            }
+            
+            printWindow.document.write('<html><head><title>Pin Pivot Scratch Inspection Report</title>');
+            printWindow.document.write('<style>');
+            printWindow.document.write('body { font-family: Arial, sans-serif; margin: 20px; }');
+            printWindow.document.write('h1 { color: #1e3c72; text-align: center; }');
+            printWindow.document.write('table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 10px; }');
+            printWindow.document.write('th { background: #2a5298; color: white; padding: 8px; text-align: center; border: 1px solid #ddd; }');
+            printWindow.document.write('th.red-header { background: #ff0000 !important; }');
+            printWindow.document.write('td { padding: 6px; text-align: center; border: 1px solid #ddd; }');
+            printWindow.document.write('tr:nth-child(even) { background: #f8f9fa; }');
+            printWindow.document.write('.pivot-nsk { background: #e3f2fd; color: #1976d2; font-weight: 600; padding: 3px 6px; border-radius: 3px; }');
+            printWindow.document.write('.pivot-nmb { background: #fff3e0; color: #f57c00; font-weight: 600; padding: 3px 6px; border-radius: 3px; }');
+            printWindow.document.write('@media print { body { margin: 0; } }');
+            printWindow.document.write('</style>');
+            printWindow.document.write('</head><body>');
+            printWindow.document.write('<h1>🔍 Pin Pivot Scratch Inspection Report</h1>');
+            printWindow.document.write('<p style="text-align: center; color: #666;">PCM/PDQ MBA 2nd Inspection</p>');
+            printWindow.document.write('<p style="text-align: center; color: #666;">Generated on: ' + new Date().toLocaleString('th-TH') + '</p>');
+            printWindow.document.write('<p style="text-align: center; color: #666;">Total Records: ' + document.getElementById('totalRecords').textContent + '</p>');
+            printWindow.document.write(table.outerHTML);
+            printWindow.document.write('</body></html>');
+            printWindow.document.close();
+            
+            setTimeout(() => {
+                printWindow.print();
+            }, 250);
+        }
+
+        // Auto-clean data on load
+        window.addEventListener('load', function() {
+            const oneYearAgo = new Date();
+            oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+            
+            dataStore = dataStore.filter(d => {
+                const createdDate = d.createdAt ? new Date(d.createdAt) : new Date(d.date);
+                return createdDate >= oneYearAgo;
+            });
+            
+            localStorage.setItem('scratchData', JSON.stringify(dataStore));
+            
+            populateFilters();
+            updateTable();
+        });
+    </script>
+</body>
+</html>
