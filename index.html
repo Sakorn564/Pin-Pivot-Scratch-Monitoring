@@ -435,12 +435,6 @@
             border: 2px solid #c3e6cb;
         }
 
-        .alert-warning {
-            background: #fff3cd;
-            color: #856404;
-            border: 2px solid #ffeaa7;
-        }
-
         .filter-section {
             padding: 20px 30px;
             background: #f8f9fa;
@@ -522,15 +516,6 @@
             .filter-section {
                 flex-direction: column;
                 align-items: stretch;
-            }
-
-            .filter-group {
-                flex-direction: column;
-                align-items: stretch;
-            }
-
-            .table-header {
-                flex-direction: column;
             }
 
             .button-group {
@@ -860,6 +845,7 @@
 
             <div style="padding: 30px; text-align: center;">
                 <button class="btn-success" onclick="exportToExcel()">📥 Export All Data to Excel</button>
+                <button class="btn-primary" onclick="fixExistingTimeData()">🔧 Fix Time Format</button>
                 <button class="btn-info" onclick="cleanOldData()">🗑️ Clean Data Older Than 1 Year</button>
                 <button class="btn-danger" onclick="clearAllData()">⚠️ Clear All Data</button>
             </div>
@@ -967,16 +953,18 @@
             try {
                 const dataString = JSON.stringify(data);
                 const dataSize = new Blob([dataString]).size;
-                const maxSize = 5 * 1024 * 1024; // 5 MB
+                const maxSize = 5 * 1024 * 1024;
                 
                 if (dataSize > maxSize * 0.9) {
                     document.getElementById('storageWarning').style.display = 'flex';
                     document.getElementById('storageWarningText').textContent = 
                         `Storage is ${((dataSize / maxSize) * 100).toFixed(1)}% full. Please export and clean old data.`;
+                } else {
+                    document.getElementById('storageWarning').style.display = 'none';
                 }
                 
                 if (dataSize > maxSize) {
-                    alert(`⚠️ ข้อมูลมีขนาดใหญ่เกินไป!\n\nขนาดปัจจุบัน: ${(dataSize / 1024 / 1024).toFixed(2)} MB\n\nกรุณา:\n1. Export ข้อมูลออกไป\n2. Clean Data Older Than 1 Year\n3. Clear All Data`);
+                    alert(`⚠️ ข้อมูลเต็ม!\n\nขนาด: ${(dataSize / 1024 / 1024).toFixed(2)} MB\n\nกรุณา:\n1. Export ข้อมูล\n2. Clean Old Data\n3. Clear All Data`);
                     return false;
                 }
                 
@@ -984,7 +972,7 @@
                 return true;
             } catch (e) {
                 if (e.name === 'QuotaExceededError') {
-                    alert('❌ พื้นที่จัดเก็บข้อมูลเต็ม!\n\nกรุณา:\n1. Clean Data Older Than 1 Year\n2. Export และลบข้อมูลเก่า\n3. Clear All Data');
+                    alert('❌ พื้นที่เต็ม!\n\nกรุณา Export และลบข้อมูลเก่า');
                 }
                 return false;
             }
@@ -1005,13 +993,13 @@
                     const jsonData = XLSX.utils.sheet_to_json(firstSheet);
                     
                     if (jsonData.length === 0) {
-                        showUploadStatus('error', '❌ ไฟล์ Excel ว่างเปล่า กรุณาตรวจสอบไฟล์');
+                        showUploadStatus('error', '❌ ไฟล์ว่างเปล่า');
                         return;
                     }
 
                     processUploadedData(jsonData);
                 } catch (error) {
-                    showUploadStatus('error', '❌ เกิดข้อผิดพลาดในการอ่านไฟล์: ' + error.message);
+                    showUploadStatus('error', '❌ ข้อผิดพลาด: ' + error.message);
                 }
             };
             reader.readAsArrayBuffer(file);
@@ -1034,6 +1022,21 @@
                         }
                     }
 
+                    // Parse Time - แก้ไขให้แปลงเป็น HH:MM
+                    let timeString = '';
+                    if (row.Time) {
+                        if (typeof row.Time === 'number') {
+                            // Excel time format (0.29166667 = 07:00)
+                            const totalMinutes = Math.round(row.Time * 24 * 60);
+                            const hours = Math.floor(totalMinutes / 60);
+                            const minutes = totalMinutes % 60;
+                            timeString = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+                        } else if (typeof row.Time === 'string') {
+                            // If already string, keep it
+                            timeString = row.Time;
+                        }
+                    }
+
                     const parseValue = (val) => {
                         if (val === '' || val === null || val === undefined) return 0;
                         if (val === 'V' || val === 'v') return 1;
@@ -1046,7 +1049,7 @@
                         sampleNo: row['Sample No.'] || row['Sample No'] || '',
                         week: row.Week || '',
                         date: dateObj.toISOString().split('T')[0],
-                        time: row.Time || '',
+                        time: timeString,
                         monitorType: row['Monitor/Buyoff/OCAP'] || 'Monitor',
                         hddSN: row['HDD SN'] || '',
                         hsaSN: row['HSA SN'] || '',
@@ -1073,7 +1076,7 @@
 
                     if (!data.sampleNo || !data.week || !data.date || !data.product) {
                         errorCount++;
-                        errors.push(`Row ${index + 2}: Missing required fields`);
+                        errors.push(`Row ${index + 2}: Missing required`);
                         return;
                     }
 
@@ -1088,19 +1091,13 @@
 
             if (!saveToLocalStorage(dataStore)) {
                 dataStore = dataStore.slice(0, dataStore.length - successCount);
-                showUploadStatus('error', '❌ ไม่สามารถบันทึกข้อมูลได้ เนื่องจากพื้นที่เต็ม');
+                showUploadStatus('error', '❌ ไม่สามารถบันทึกได้');
                 return;
             }
 
-            let statusMessage = `✅ นำเข้าข้อมูลสำเร็จ: ${successCount} รายการ`;
+            let statusMessage = `✅ นำเข้าสำเร็จ: ${successCount} รายการ`;
             if (errorCount > 0) {
-                statusMessage += `<br>⚠️ พบข้อผิดพลาด: ${errorCount} รายการ`;
-                if (errors.length > 0) {
-                    statusMessage += '<br><br>รายละเอียดข้อผิดพลาด:<br>' + errors.slice(0, 5).join('<br>');
-                    if (errors.length > 5) {
-                        statusMessage += `<br>... และอีก ${errors.length - 5} รายการ`;
-                    }
-                }
+                statusMessage += `<br>⚠️ ข้อผิดพลาด: ${errorCount} รายการ`;
             }
 
             showUploadStatus(errorCount === 0 ? 'success' : 'warning', statusMessage);
@@ -1144,7 +1141,7 @@
                     'Sample No.': 'SAMPLE001',
                     'Week': '1',
                     'Date': '2025-01-27',
-                    'Time': '14:30',
+                    'Time': '07:00',
                     'Monitor/Buyoff/OCAP': 'Monitor',
                     'HDD SN': 'HDD12345',
                     'HSA SN': 'HSA67890',
@@ -1152,8 +1149,8 @@
                     'MC': 'MC01',
                     'Fixture': 'FIX01',
                     'Index': '1',
-                    'Line': 'Line A',
-                    'Product': 'PCM',
+                    'Line': 'LF',
+                    'Product': 'P1-P2 (SEW)',
                     'Pivot': 'K',
                     'No scratch': 5,
                     'Scratch w/protrusion': 0,
@@ -1165,14 +1162,11 @@
                     'Slightly wide scratch at top pin area': 0,
                     'Hardly wide scratch at bottom pin area': 0,
                     'Slightly wide scratch at bottom pin area': 0,
-                    'Remark': 'Sample data'
+                    'Remark': ''
                 }
             ];
 
             const ws = XLSX.utils.json_to_sheet(templateData);
-            const cols = Array(25).fill({wch: 15});
-            ws['!cols'] = cols;
-
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, "Template");
             XLSX.writeFile(wb, 'Pin_Pivot_Scratch_Template.xlsx');
@@ -1181,15 +1175,15 @@
         }
 
         function showUploadGuide() {
-            alert(`📚 คู่มือการ Upload ข้อมูล Excel
+            alert(`📚 คู่มือ Upload Excel
 
 1️⃣ Download Template
-2️⃣ กรอกข้อมูลใน Excel
-3️⃣ ฟิลด์ที่จำเป็น: Sample No., Week, Date, Product, Pivot
+2️⃣ กรอกข้อมูล (Required: Sample No., Week, Date, Product, Pivot)
+3️⃣ Time ใช้รูปแบบ HH:MM (เช่น 07:00, 14:30)
 4️⃣ Upload ไฟล์
-5️⃣ ตรวจสอบผลลัพธ์
+5️⃣ ตรวจสอบผล
 
-⚠️ ข้อมูลจะถูกเพิ่มเข้าระบบ (ไม่ลบข้อมูลเดิม)`);
+⚠️ ข้อมูลจะถูกเพิ่มเข้าระบบ (ไม่ลบเดิม)`);
         }
 
         function showStorageInfo() {
@@ -1198,18 +1192,49 @@
             const maxSize = 5 * 1024 * 1024;
             const usedPercent = ((dataSize / maxSize) * 100).toFixed(2);
             
-            alert(`💾 Storage Information:
+            alert(`💾 Storage Info:
 
-📊 Data Size: ${(dataSize / 1024 / 1024).toFixed(2)} MB
-📈 Records: ${dataStore.length}
+📊 Size: ${(dataSize / 1024 / 1024).toFixed(2)} MB
+📈 Records: ${dataStore.length.toLocaleString()}
 ⚠️ Used: ${usedPercent}%
 ✅ Available: ${((maxSize - dataSize) / 1024 / 1024).toFixed(2)} MB
 
 ${usedPercent > 80 ? '⚠️ กรุณา Export และลบข้อมูลเก่า' : '✅ พื้นที่เพียงพอ'}`);
         }
 
+        function fixExistingTimeData() {
+            let fixedCount = 0;
+            
+            dataStore.forEach(d => {
+                if (d.time && typeof d.time === 'string' && d.time.includes('.')) {
+                    const timeNum = parseFloat(d.time);
+                    if (!isNaN(timeNum) && timeNum < 1) {
+                        const totalMinutes = Math.round(timeNum * 24 * 60);
+                        const hours = Math.floor(totalMinutes / 60);
+                        const minutes = totalMinutes % 60;
+                        d.time = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+                        fixedCount++;
+                    }
+                } else if (d.time && typeof d.time === 'number') {
+                    const totalMinutes = Math.round(d.time * 24 * 60);
+                    const hours = Math.floor(totalMinutes / 60);
+                    const minutes = totalMinutes % 60;
+                    d.time = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+                    fixedCount++;
+                }
+            });
+            
+            if (fixedCount > 0) {
+                saveToLocalStorage(dataStore);
+                updateTable();
+                alert(`✅ แก้ไข Time format สำเร็จ: ${fixedCount} รายการ`);
+            } else {
+                alert('ℹ️ ไม่พบข้อมูล Time ที่ต้องแก้ไข');
+            }
+        }
+
         function clearAllData() {
-            if (confirm('⚠️ ต้องการลบข้อมูลทั้งหมดหรือไม่?')) {
+            if (confirm('⚠️ ต้องการลบทั้งหมดหรือไม่?')) {
                 if (confirm('❗ ยืนยันอีกครั้ง')) {
                     const count = dataStore.length;
                     dataStore = [];
@@ -1218,7 +1243,7 @@ ${usedPercent > 80 ? '⚠️ กรุณา Export และลบข้อม�
                     updateAllCharts();
                     populateFilters();
                     updateRecordCount();
-                    alert(`✅ ลบข้อมูลสำเร็จ: ${count} รายการ`);
+                    alert(`✅ ลบสำเร็จ: ${count.toLocaleString()} รายการ`);
                 }
             }
         }
@@ -1261,7 +1286,7 @@ ${usedPercent > 80 ? '⚠️ กรุณา Export และลบข้อม�
             
             if (!saveToLocalStorage(dataStore)) {
                 dataStore.pop();
-                alert('❌ ไม่สามารถบันทึกได้ พื้นที่เต็ม');
+                alert('❌ ไม่สามารถบันทึกได้');
                 return;
             }
 
@@ -1357,7 +1382,7 @@ ${usedPercent > 80 ? '⚠️ กรุณา Export และลบข้อม�
             const data = getFilteredData();
 
             if (data.length === 0) {
-                document.getElementById('statsSection').innerHTML = '<p style="text-align: center; padding: 40px; color: #666; grid-column: 1/-1;">ไม่พบข้อมูลตามเงื่อนไขที่เลือก</p>';
+                document.getElementById('statsSection').innerHTML = '<p style="text-align: center; padding: 40px; color: #666; grid-column: 1/-1;">ไม่พบข้อมูลตามเงื่อนไข</p>';
                 return;
             }
 
@@ -1577,7 +1602,7 @@ ${usedPercent > 80 ? '⚠️ กรุณา Export และลบข้อม�
                 data: {
                     labels: Object.keys(pivotStats),
                     datasets: [{
-                        label: 'Total Defects by Pivot Type',
+                        label: 'Total Defects',
                         data: Object.values(pivotStats),
                         backgroundColor: [
                             '#667eea', '#764ba2', '#f093fb', '#4facfe', '#43e97b',
@@ -1590,10 +1615,7 @@ ${usedPercent > 80 ? '⚠️ กรุณา Export และลบข้อม�
                     responsive: true,
                     plugins: { 
                         legend: { display: false },
-                        title: {
-                            display: true,
-                            text: 'NSK (K/J/S/D/L) vs NMB (M/B/N/P) Detail'
-                        }
+                        title: { display: true, text: 'NSK (K/J/S/D/L) vs NMB (M/B/N/P)' }
                     },
                     scales: {
                         y: {
@@ -1738,13 +1760,11 @@ ${usedPercent > 80 ? '⚠️ กรุณา Export และลบข้อม�
             const tbody = document.getElementById('tableBody');
             tbody.innerHTML = '';
 
-            let displayData = dataStore;
-
             const startDate = document.getElementById('tableStartDate')?.value;
             const endDate = document.getElementById('tableEndDate')?.value;
             const line = document.getElementById('tableLineFilter')?.value;
 
-            displayData = dataStore.filter(d => {
+            let displayData = dataStore.filter(d => {
                 if (startDate && d.date < startDate) return false;
                 if (endDate && d.date > endDate) return false;
                 if (line !== 'all' && d.line !== line) return false;
@@ -1807,7 +1827,7 @@ ${usedPercent > 80 ? '⚠️ กรุณา Export และลบข้อม�
         }
 
         function deleteRecord(id) {
-            if (confirm('ต้องการลบข้อมูลนี้หรือไม่?')) {
+            if (confirm('ลบข้อมูลนี้?')) {
                 dataStore = dataStore.filter(d => d.id !== id);
                 saveToLocalStorage(dataStore);
                 updateTable();
@@ -1826,12 +1846,10 @@ ${usedPercent > 80 ? '⚠️ กรุณา Export และลบข้อม�
                 const createdDate = d.createdAt ? new Date(d.createdAt) : new Date(d.date);
                 return createdDate >= oneYearAgo;
             });
-            const newCount = dataStore.length;
-            const deletedCount = oldCount - newCount;
             
             saveToLocalStorage(dataStore);
             
-            alert(`ลบข้อมูลเก่าเรียบร้อย\nลบ: ${deletedCount} รายการ\nเหลือ: ${newCount} รายการ`);
+            alert(`ลบข้อมูลเก่า\nลบ: ${(oldCount - dataStore.length).toLocaleString()}\nเหลือ: ${dataStore.length.toLocaleString()}`);
             
             updateTable();
             updateAllCharts();
@@ -1840,7 +1858,7 @@ ${usedPercent > 80 ? '⚠️ กรุณา Export และลบข้อม�
 
         function exportToExcel() {
             if (dataStore.length === 0) {
-                alert('ไม่มีข้อมูลให้ Export');
+                alert('ไม่มีข้อมูล');
                 return;
             }
 
@@ -1877,7 +1895,7 @@ ${usedPercent > 80 ? '⚠️ กรุณา Export และลบข้อม�
             XLSX.utils.book_append_sheet(wb, ws, "Data");
             XLSX.writeFile(wb, `Pin_Pivot_${new Date().toISOString().split('T')[0]}.xlsx`);
             
-            alert(`✅ Export: ${exportData.length} รายการ`);
+            alert(`✅ Export: ${exportData.length.toLocaleString()} รายการ`);
         }
 
         function exportTableToExcel() {
@@ -1901,6 +1919,7 @@ ${usedPercent > 80 ? '⚠️ กรุณา Export และลบข้อม�
                 'Sample No.': d.sampleNo,
                 'Week': d.week,
                 'Date': d.date,
+                'Time': d.time,
                 'Line': d.line,
                 'Product': d.product,
                 'Pivot': d.pivot,
@@ -1922,11 +1941,11 @@ ${usedPercent > 80 ? '⚠️ กรุณา Export และลบข้อม�
             XLSX.utils.book_append_sheet(wb, ws, "Data");
             XLSX.writeFile(wb, `Table_${new Date().toISOString().split('T')[0]}.xlsx`);
             
-            alert(`✅ Export: ${exportData.length} รายการ`);
+            alert(`✅ Export: ${exportData.length.toLocaleString()} รายการ`);
         }
 
         function exportTableToCSV() {
-            alert('CSV Export - Coming soon');
+            alert('CSV Export');
         }
 
         function printTable() {
