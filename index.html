@@ -86,6 +86,56 @@
             background: #f8f9fa;
         }
 
+        .upload-section {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+
+        .upload-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .upload-box {
+            border: 3px dashed #2a5298;
+            border-radius: 10px;
+            padding: 30px;
+            text-align: center;
+            background: #f8f9fa;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .upload-box:hover {
+            border-color: #1e3c72;
+            background: #e9ecef;
+            transform: scale(1.02);
+        }
+
+        .info-box {
+            border: 2px solid #dee2e6;
+            border-radius: 10px;
+            padding: 20px;
+            background: white;
+        }
+
+        .info-box h4 {
+            color: #1e3c72;
+            margin-bottom: 15px;
+        }
+
+        .info-box ul {
+            color: #666;
+            font-size: 0.9em;
+            line-height: 1.8;
+            padding-left: 20px;
+        }
+
         .form-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
@@ -452,7 +502,7 @@
         }
 
         @media (max-width: 768px) {
-            .form-grid, .scratch-grid {
+            .form-grid, .scratch-grid, .upload-grid {
                 grid-template-columns: 1fr;
             }
             
@@ -497,12 +547,58 @@
         <!-- INPUT TAB -->
         <div id="input" class="content active">
             <div class="input-section">
+                <!-- Upload Section -->
+                <div class="upload-section">
+                    <h2 style="color: #1e3c72; margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
+                        📁 Upload Existing Data
+                        <span style="font-size: 0.7em; color: #666; font-weight: normal;">(นำเข้าข้อมูลเก่าจาก Excel)</span>
+                    </h2>
+                    
+                    <div class="upload-grid">
+                        <div class="upload-box" onclick="document.getElementById('uploadExcel').click()">
+                            <div style="font-size: 3em; margin-bottom: 10px;">📤</div>
+                            <h3 style="color: #1e3c72; margin-bottom: 10px;">Upload Excel File</h3>
+                            <p style="color: #666; font-size: 0.9em;">คลิกเพื่ออัพโหลดไฟล์ .xlsx หรือ .xls</p>
+                            <input type="file" id="uploadExcel" accept=".xlsx, .xls" style="display: none;" onchange="handleExcelUpload(event)">
+                            <p style="color: #28a745; font-weight: bold; margin-top: 10px;" id="uploadFileName"></p>
+                        </div>
+
+                        <div class="info-box">
+                            <h4>📋 Excel Format Requirements:</h4>
+                            <ul>
+                                <li>Sample No., Week, Date, Time</li>
+                                <li>Monitor/Buyoff/OCAP</li>
+                                <li>HDD SN, HSA SN, SDL RW ASM cycle</li>
+                                <li>MC, Fixture, Index, Line, Product</li>
+                                <li>Pivot (K/J/S/D/L NSK / M/B/N/P NMB)</li>
+                                <li>No scratch, Scratch w/protrusion</li>
+                                <li>Hardly/Slightly long/short/wide scratches</li>
+                                <li>Remark</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
+                        <button type="button" class="btn-success" onclick="document.getElementById('uploadExcel').click()">
+                            📤 Upload Excel File
+                        </button>
+                        <button type="button" class="btn-info" onclick="downloadTemplate()">
+                            📥 Download Excel Template
+                        </button>
+                        <button type="button" class="btn-primary" onclick="showUploadGuide()">
+                            ❓ Upload Guide
+                        </button>
+                    </div>
+
+                    <div id="uploadStatus" style="margin-top: 20px; padding: 15px; border-radius: 8px; display: none;"></div>
+                </div>
+
                 <div id="successAlert" class="alert alert-success" style="display: none;">
                     ✅ บันทึกข้อมูลสำเร็จ!
                 </div>
 
                 <form id="inspectionForm">
-                    <h2 style="color: #1e3c72; margin-bottom: 20px;">📋 Basic Information</h2>
+                    <h2 style="color: #1e3c72; margin-bottom: 20px;">📋 Manual Data Entry</h2>
                     
                     <div class="form-grid">
                         <div class="form-group">
@@ -739,6 +835,7 @@
             <div style="padding: 30px; text-align: center;">
                 <button class="btn-success" onclick="exportToExcel()">📥 Export All Data to Excel</button>
                 <button class="btn-info" onclick="cleanOldData()">🗑️ Clean Data Older Than 1 Year</button>
+                <button class="btn-danger" onclick="clearAllData()">⚠️ Clear All Data</button>
             </div>
         </div>
 
@@ -833,6 +930,288 @@
                 input.focus();
             } else {
                 input.value = 0;
+            }
+        }
+
+        // Handle Excel Upload
+        function handleExcelUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            document.getElementById('uploadFileName').textContent = `📄 ${file.name}`;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, {type: 'array'});
+                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const jsonData = XLSX.utils.sheet_to_json(firstSheet);
+                    
+                    if (jsonData.length === 0) {
+                        showUploadStatus('error', '❌ ไฟล์ Excel ว่างเปล่า กรุณาตรวจสอบไฟล์');
+                        return;
+                    }
+
+                    processUploadedData(jsonData);
+                } catch (error) {
+                    showUploadStatus('error', '❌ เกิดข้อผิดพลาดในการอ่านไฟล์: ' + error.message);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        // Process uploaded Excel data
+        function processUploadedData(jsonData) {
+            let successCount = 0;
+            let errorCount = 0;
+            const errors = [];
+
+            jsonData.forEach((row, index) => {
+                try {
+                    // Parse date
+                    let dateObj = new Date();
+                    if (row.Date) {
+                        if (typeof row.Date === 'number') {
+                            const parsed = XLSX.SSF.parse_date_code(row.Date);
+                            dateObj = new Date(parsed.y, parsed.m - 1, parsed.d);
+                        } else {
+                            dateObj = new Date(row.Date);
+                        }
+                    }
+
+                    // Parse values
+                    const parseValue = (val) => {
+                        if (val === '' || val === null || val === undefined) return 0;
+                        if (val === 'V' || val === 'v') return 1;
+                        const num = parseInt(val);
+                        return isNaN(num) ? 0 : num;
+                    };
+
+                    // Create data object
+                    const data = {
+                        id: Date.now() + index,
+                        sampleNo: row['Sample No.'] || row['Sample No'] || '',
+                        week: row.Week || '',
+                        date: dateObj.toISOString().split('T')[0],
+                        time: row.Time || '',
+                        monitorType: row['Monitor/Buyoff/OCAP'] || 'Monitor',
+                        hddSN: row['HDD SN'] || '',
+                        hsaSN: row['HSA SN'] || '',
+                        asmCycle: row['SDL RW ASM cycle'] || row['SDL RW\nASM cycle'] || '',
+                        mc: row.MC || '',
+                        fixture: row.Fixture || '',
+                        index: row.Index || '',
+                        line: row.Line || '',
+                        product: row.Product || '',
+                        pivot: row.Pivot || row['Pivot (K/J NSK) (M/B/N NMB)'] || '',
+                        noScratch: parseValue(row['No scratch']),
+                        scratchProtrusion: parseValue(row['Scratch w/protrusion']),
+                        hardlyLong: parseValue(row['Hardly long scratch']),
+                        slightlyLong: parseValue(row['Slightly long scratch']),
+                        hardlyShort: parseValue(row['Hardly short scratch']),
+                        slightlyShort: parseValue(row['Slightly short scratch']),
+                        hardlyWideTop: parseValue(row['Hardly wide scratch at top pin area']),
+                        slightlyWideTop: parseValue(row['Slightly wide scratch at top pin area']),
+                        hardlyWideBottom: parseValue(row['Hardly wide scratch at bottom pin area']),
+                        slightlyWideBottom: parseValue(row['Slightly wide scratch at bottom pin area']),
+                        remark: row.Remark || '',
+                        createdAt: new Date().toISOString()
+                    };
+
+                    // Validate required fields
+                    if (!data.sampleNo || !data.week || !data.date || !data.product || !data.pivot) {
+                        errorCount++;
+                        errors.push(`Row ${index + 2}: Missing required fields`);
+                        return;
+                    }
+
+                    dataStore.push(data);
+                    successCount++;
+
+                } catch (error) {
+                    errorCount++;
+                    errors.push(`Row ${index + 2}: ${error.message}`);
+                }
+            });
+
+            localStorage.setItem('scratchData', JSON.stringify(dataStore));
+
+            let statusMessage = `✅ นำเข้าข้อมูลสำเร็จ: ${successCount} รายการ`;
+            if (errorCount > 0) {
+                statusMessage += `\n⚠️ พบข้อผิดพลาด: ${errorCount} รายการ`;
+                if (errors.length > 0) {
+                    statusMessage += '\n\nรายละเอียดข้อผิดพลาด:\n' + errors.slice(0, 5).join('\n');
+                    if (errors.length > 5) {
+                        statusMessage += `\n... และอีก ${errors.length - 5} รายการ`;
+                    }
+                }
+            }
+
+            showUploadStatus(errorCount === 0 ? 'success' : 'warning', statusMessage);
+
+            populateFilters();
+            updateTable();
+            updateAllCharts();
+
+            document.getElementById('uploadExcel').value = '';
+        }
+
+        // Show upload status
+        function showUploadStatus(type, message) {
+            const statusDiv = document.getElementById('uploadStatus');
+            statusDiv.style.display = 'block';
+            
+            if (type === 'success') {
+                statusDiv.style.background = '#d4edda';
+                statusDiv.style.color = '#155724';
+                statusDiv.style.border = '2px solid #c3e6cb';
+            } else if (type === 'warning') {
+                statusDiv.style.background = '#fff3cd';
+                statusDiv.style.color = '#856404';
+                statusDiv.style.border = '2px solid #ffeaa7';
+            } else {
+                statusDiv.style.background = '#f8d7da';
+                statusDiv.style.color = '#721c24';
+                statusDiv.style.border = '2px solid #f5c6cb';
+            }
+            
+            statusDiv.innerHTML = message.replace(/\n/g, '<br>');
+
+            setTimeout(() => {
+                statusDiv.style.display = 'none';
+            }, 10000);
+        }
+
+        // Download Excel Template
+        function downloadTemplate() {
+            const templateData = [
+                {
+                    'Sample No.': 'SAMPLE001',
+                    'Week': '1',
+                    'Date': '2025-01-27',
+                    'Time': '14:30',
+                    'Monitor/Buyoff/OCAP': 'Monitor',
+                    'HDD SN': 'HDD12345',
+                    'HSA SN': 'HSA67890',
+                    'SDL RW ASM cycle': 'CYCLE001',
+                    'MC': 'MC01',
+                    'Fixture': 'FIX01',
+                    'Index': '1',
+                    'Line': 'Line A',
+                    'Product': 'PCM',
+                    'Pivot': 'K',
+                    'No scratch': 5,
+                    'Scratch w/protrusion': 0,
+                    'Hardly long scratch': 0,
+                    'Slightly long scratch': 0,
+                    'Hardly short scratch': 0,
+                    'Slightly short scratch': 0,
+                    'Hardly wide scratch at top pin area': 0,
+                    'Slightly wide scratch at top pin area': 0,
+                    'Hardly wide scratch at bottom pin area': 0,
+                    'Slightly wide scratch at bottom pin area': 0,
+                    'Remark': 'Sample data'
+                },
+                {
+                    'Sample No.': 'SAMPLE002',
+                    'Week': '1',
+                    'Date': '2025-01-27',
+                    'Time': '15:00',
+                    'Monitor/Buyoff/OCAP': 'Buyoff',
+                    'HDD SN': 'HDD12346',
+                    'HSA SN': 'HSA67891',
+                    'SDL RW ASM cycle': 'CYCLE002',
+                    'MC': 'MC02',
+                    'Fixture': 'FIX02',
+                    'Index': '2',
+                    'Line': 'Line B',
+                    'Product': 'PDQ',
+                    'Pivot': 'M',
+                    'No scratch': 0,
+                    'Scratch w/protrusion': 2,
+                    'Hardly long scratch': 1,
+                    'Slightly long scratch': 0,
+                    'Hardly short scratch': 0,
+                    'Slightly short scratch': 1,
+                    'Hardly wide scratch at top pin area': 0,
+                    'Slightly wide scratch at top pin area': 0,
+                    'Hardly wide scratch at bottom pin area': 0,
+                    'Slightly wide scratch at bottom pin area': 0,
+                    'Remark': 'Found defects'
+                }
+            ];
+
+            const ws = XLSX.utils.json_to_sheet(templateData);
+            
+            const cols = [
+                {wch: 12}, {wch: 8}, {wch: 12}, {wch: 8}, {wch: 18}, {wch: 15}, {wch: 15},
+                {wch: 15}, {wch: 8}, {wch: 10}, {wch: 8}, {wch: 8}, {wch: 12},
+                {wch: 10}, {wch: 12}, {wch: 20}, {wch: 20}, {wch: 22},
+                {wch: 20}, {wch: 22}, {wch: 35}, {wch: 38}, {wch: 38}, {wch: 41}, {wch: 20}
+            ];
+            ws['!cols'] = cols;
+
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Template");
+            XLSX.writeFile(wb, 'Pin_Pivot_Scratch_Template.xlsx');
+            
+            alert('✅ ดาวน์โหลด Template สำเร็จ!\n\nกรุณากรอกข้อมูลตาม Template แล้ว Upload กลับมา');
+        }
+
+        // Show upload guide
+        function showUploadGuide() {
+            const guide = `📚 คู่มือการ Upload ข้อมูล Excel
+
+1️⃣ ดาวน์โหลด Template
+   - คลิกปุ่ม "Download Excel Template"
+   - Template จะมีตัวอย่างข้อมูล 2 แถว
+
+2️⃣ กรอกข้อมูลใน Excel
+   - ใช้ Template ที่ดาวน์โหลดมา
+   - กรอกข้อมูลในแต่ละคอลัมน์ตามต้องการ
+   - สามารถกรอกตัวเลขหรือใช้ "V" สำหรับ scratch
+
+3️⃣ ฟิลด์ที่จำเป็น (*Required):
+   - Sample No. *
+   - Week *
+   - Date * (YYYY-MM-DD)
+   - Product *
+   - Pivot * (K/J/S/D/L/M/B/N/P)
+
+4️⃣ Upload ไฟล์
+   - คลิกปุ่ม "Upload Excel File"
+   - เลือกไฟล์ที่กรอกข้อมูลแล้ว
+   - ระบบจะประมวลผลและแสดงผลลัพธ์
+
+5️⃣ ตรวจสอบผลลัพธ์
+   - ดูจำนวนรายการที่นำเข้าสำเร็จ
+   - ตรวจสอบข้อผิดพลาด (ถ้ามี)
+   - ไปที่ Data Table เพื่อดูข้อมูลทั้งหมด
+
+⚠️ หมายเหตุ:
+- รองรับไฟล์ .xlsx และ .xls
+- ข้อมูลจะถูกเพิ่มเข้าไปในระบบ (ไม่ลบข้อมูลเดิม)
+- สามารถ Upload หลายครั้งได้
+- ข้อมูลจะถูกเก็บไว้ 1 ปี`;
+            
+            alert(guide);
+        }
+
+        // Clear all data
+        function clearAllData() {
+            if (confirm('⚠️ คำเตือน!\n\nต้องการลบข้อมูลทั้งหมดหรือไม่?\nการกระทำนี้ไม่สามารถย้อนกลับได้!')) {
+                if (confirm('❗ ยืนยันอีกครั้ง\n\nคุณแน่ใจหรือว่าต้องการลบข้อมูลทั้งหมด?')) {
+                    const count = dataStore.length;
+                    dataStore = [];
+                    localStorage.setItem('scratchData', JSON.stringify(dataStore));
+                    
+                    updateTable();
+                    updateAllCharts();
+                    populateFilters();
+                    
+                    alert(`✅ ลบข้อมูลสำเร็จ!\nลบไปทั้งหมด: ${count} รายการ`);
+                }
             }
         }
 
@@ -1416,7 +1795,6 @@
             updateAllCharts();
         }
 
-        // Export All Data to Excel
         function exportToExcel() {
             if (dataStore.length === 0) {
                 alert('ไม่มีข้อมูลให้ Export');
@@ -1469,7 +1847,6 @@
             alert(`✅ Export สำเร็จ!\nจำนวนรายการ: ${exportData.length} รายการ`);
         }
 
-        // Export Table to Excel (filtered data)
         function exportTableToExcel() {
             const startDate = document.getElementById('tableStartDate')?.value;
             const endDate = document.getElementById('tableEndDate')?.value;
@@ -1545,7 +1922,6 @@
             alert(`✅ Export สำเร็จ!\nจำนวนรายการ: ${exportData.length} รายการ`);
         }
 
-        // Export Table to CSV
         function exportTableToCSV() {
             const startDate = document.getElementById('tableStartDate')?.value;
             const endDate = document.getElementById('tableEndDate')?.value;
@@ -1604,7 +1980,6 @@
             alert(`✅ Export CSV สำเร็จ!\nจำนวนรายการ: ${displayData.length} รายการ`);
         }
 
-        // Print Table
         function printTable() {
             const printWindow = window.open('', '', 'height=600,width=800');
             const table = document.getElementById('mainTable').cloneNode(true);
@@ -1650,7 +2025,6 @@
             }, 250);
         }
 
-        // Auto-clean data on load
         window.addEventListener('load', function() {
             const oneYearAgo = new Date();
             oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
